@@ -8,6 +8,8 @@ from app.models.user import User
 from app.models.project import Project
 from app.models.task import Task
 from app.models.tag import Tag
+from app.models.comment import Comment
+from app.schemas.comment import CommentCreate, CommentResponse
 from app.schemas.project import ProjectCreate, ProjectResponse
 from app.schemas.tag import TagCreate, TagResponse
 from app.schemas.task import TaskCreate, TaskResponse
@@ -101,6 +103,7 @@ async def create_task(
         performer_id=data.performer_id,
         parent_task_id=data.parent_task_id
     )
+    
     db.add(new_task)
     await db.commit()
     await db.refresh(new_task, attribute_names=["tags", "subtasks"])
@@ -141,3 +144,37 @@ async def create_task_tags(task_id: int, tag_id: int, db: AsyncSession = Depends
     await db.refresh(task, attribute_names=["tags"])
 
     return task
+
+@app.post("/tasks/{task_id}/comments", response_model=CommentResponse)
+async def create_comment(task_id: int, data: CommentCreate, db: AsyncSession = Depends(get_db)) -> Comment:
+    task = await db.get(Task, task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail=f"Задача с ID {task_id} не найдена")
+    
+    author = await db.get(User, data.author_id)
+    if author is None:
+        raise HTTPException(status_code=404, detail="Автор с таким ID не найден")
+
+    if data.parent_comment_id == 0:
+        data.parent_comment_id = None
+
+    if data.parent_comment_id is not None:
+        parent_comment = await db.get(Comment, data.parent_comment_id)
+        if parent_comment is None:
+            raise HTTPException(status_code=404, detail="Родительский комментарий с таким ID не найден")
+        
+        if parent_comment.task_id != task_id:
+            raise HTTPException(status_code=400, detail="Родительский комментарий принадлежит к другой задаче")
+
+    new_comment = Comment(
+        text=data.text,
+        task_id=task_id,
+        author_id=data.author_id,
+        parent_comment_id=data.parent_comment_id
+    )
+
+    db.add(new_comment)
+    await db.commit()
+    await db.refresh(new_comment)
+
+    return new_comment
