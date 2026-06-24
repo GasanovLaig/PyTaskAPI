@@ -1,10 +1,15 @@
 from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI, HTTPException
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import async_engine, async_session_factory, Base
-from app.models import User, Project, Task
+from app.models.user import User
+from app.models.project import Project
+from app.models.task import Task
+from app.models.tag import Tag
 from app.schemas.project import ProjectCreate, ProjectResponse
+from app.schemas.tag import TagCreate, TagResponse
 from app.schemas.task import TaskCreate, TaskResponse
 from app.schemas.user import UserCreate, UserResponse
 
@@ -73,14 +78,18 @@ async def create_task(
     if project is None:
         raise HTTPException(status_code=404, detail="Такого проекта не существует")
     
-    performer = await db.get(User, data.performer_id)
-    if data.performer is None:
-        raise HTTPException(status_code=404, detail="Такого пользователя не существует")
+    if data.performer_id is not None:
+        performer = await db.get(User, data.performer_id)
+        if performer is None:
+            raise HTTPException(status_code=404, detail="Такой испольнитель не найден")
     
+    if data.parent_task_id == 0:
+        data.parent_task_id = None
+
     if data.parent_task_id is not None:
-        parent_task = await db.get(Task ,data.parent_task_id)
+        parent_task = await db.get(Task, data.parent_task_id)
         if parent_task is None:
-            raise HTTPException(status_code=404, detail="Такой родительской задачи не существует")
+            raise HTTPException(status_code=404, detail="Такая родительская задача не найдена")
         
         if parent_task.project_id != project_id:
             raise HTTPException(status_code=400, detail="Родительская задача не принадлежит тому же проекту")
@@ -90,10 +99,45 @@ async def create_task(
         description=data.description,
         project_id=project_id,
         performer_id=data.performer_id,
-        parent_id=data.parent_task_id,
+        parent_task_id=data.parent_task_id
     )
     db.add(new_task)
     await db.commit()
-    await db.refresh(new_task)
+    await db.refresh(new_task, attribute_names=["tags", "subtasks"])
 
     return new_task
+
+@app.post("/tags", response_model=TagResponse)
+async def create_tag(data: TagCreate, db: AsyncSession = Depends(get_db)) -> Tag:
+    result = await db.execute(text("SELECT id FROM tags WHERE name=:tag_name"), {"tag_name": data.name})
+    if result.scalar_one_or_none() is not None:
+        raise HTTPException(status_code=409, detail="Тег с таким названием уже существует")
+    
+    new_tag = Tag(
+        name=data.name
+    )
+    db.add(new_tag)
+    await db.commit()
+    await db.refresh(new_tag)
+
+    return new_tag
+
+@app.post("/tasks/{task_id}/tags/{tag_id}", response_model=TaskResponse)
+async def create_task_tags(task_id: int, tag_id: int, db: AsyncSession = Depends(get_db)) -> Task:
+    task = await db.get(Task, task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="Такой задачи не существует")
+    
+    tag = await db.get(Tag, tag_id)
+    if tag is None:
+        raise HTTPException(status_code=404, detail="Такого тега не существует")
+    
+    await db.refresh(task, ["tags"])
+
+    if tag not in task.tags:
+        task.tags.append(tag)
+
+    await db.commit()
+    await db.refresh(task, attribute_names=["tags"])
+
+    return task
