@@ -9,6 +9,7 @@ from app.models.project import Project
 from app.models.task import Task
 from app.models.tag import Tag
 from app.models.comment import Comment
+from app.repositories.project import ProjectRepository
 from app.repositories.user import UserRepository
 from app.schemas.comment import CommentCreate, CommentResponse
 from app.schemas.project import ProjectCreate, ProjectResponse
@@ -16,6 +17,7 @@ from app.schemas.tag import TagCreate, TagResponse
 from app.schemas.task import TaskCreate, TaskResponse
 from app.schemas.user import UserCreate, UserResponse
 from app.services.auth import AuthService
+from app.services.project import ProjectService
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -40,9 +42,27 @@ async def create_user(user_data: UserCreate, db: AsyncSession = Depends(get_db))
     auth_service = AuthService(user_repo=user_repository)
     
     return await auth_service.register_new_user(user_data=user_data)
+    
+    new_user = User(
+        email=user_data.email,
+        password=user_data.password,
+        full_name=user_data.full_name
+    )
+    
+    db.add(new_user)
+    await db.commit()
+    await db.refresh(new_user)
+    
+    return new_user
 
-@app.post("/projects", response_model=ProjectResponse)
+@app.post("/users/{user_id}/projects", response_model=ProjectResponse)
 async def create_project(project_data: ProjectCreate, user_id:int, db: AsyncSession = Depends(get_db)) -> Project:
+    user_repository = UserRepository(session=db)
+    project_repository = ProjectRepository(session=db)
+    project_service = ProjectService(project_repo=project_repository, user_repo=user_repository)
+    
+    return await project_service.create_new_project(user_id=user_id, project_data=project_data)
+    
     user = await db.get(User, user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="Пользователь не найден")
@@ -58,7 +78,13 @@ async def create_project(project_data: ProjectCreate, user_id:int, db: AsyncSess
     return new_project
 
 @app.get("/users/{user_id}/projects", response_model=list[ProjectResponse])
-async def get_user_projects_by_id(user_id: int, db: AsyncSession = Depends(get_db)) -> list[Project]:
+async def get_projects_by_user(user_id: int, db: AsyncSession = Depends(get_db)) -> list[Project]:
+    user_repository = UserRepository(session=db)
+    project_repository = ProjectRepository(session=db)
+    project_service = ProjectService(user_repo=user_repository, project_repo=project_repository)
+    
+    return await project_service.get_projects_by_user(user_id=user_id)
+    
     user = await db.get(User, user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="Пользователь не найден")
