@@ -9,11 +9,13 @@ from app.models.project import Project
 from app.models.task import Task
 from app.models.tag import Tag
 from app.models.comment import Comment
+from app.repositories.user import UserRepository
 from app.schemas.comment import CommentCreate, CommentResponse
 from app.schemas.project import ProjectCreate, ProjectResponse
 from app.schemas.tag import TagCreate, TagResponse
 from app.schemas.task import TaskCreate, TaskResponse
 from app.schemas.user import UserCreate, UserResponse
+from app.services.auth import AuthService
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -34,16 +36,10 @@ async def get_db():
 
 @app.post("/users", response_model=UserResponse)
 async def create_user(user_data: UserCreate, db: AsyncSession = Depends(get_db)) -> User:
-    new_user = User(
-        email=user_data.email,
-        password=user_data.password,
-        full_name=user_data.full_name
-    )
-    db.add(new_user)
-    await db.commit()
-    await db.refresh(new_user)
-
-    return new_user
+    user_repository = UserRepository(session=db)
+    auth_service = AuthService(user_repo=user_repository)
+    
+    return await auth_service.register_new_user(user_data=user_data)
 
 @app.post("/projects", response_model=ProjectResponse)
 async def create_project(project_data: ProjectCreate, user_id:int, db: AsyncSession = Depends(get_db)) -> Project:
