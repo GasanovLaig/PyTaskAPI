@@ -42,18 +42,6 @@ async def create_user(user_data: UserCreate, db: AsyncSession = Depends(get_db))
     auth_service = AuthService(user_repo=user_repository)
     
     return await auth_service.register_new_user(user_data=user_data)
-    
-    new_user = User(
-        email=user_data.email,
-        password=user_data.password,
-        full_name=user_data.full_name
-    )
-    
-    db.add(new_user)
-    await db.commit()
-    await db.refresh(new_user)
-    
-    return new_user
 
 @app.post("/users/{user_id}/projects", response_model=ProjectResponse)
 async def create_project(project_data: ProjectCreate, user_id:int, db: AsyncSession = Depends(get_db)) -> Project:
@@ -62,20 +50,6 @@ async def create_project(project_data: ProjectCreate, user_id:int, db: AsyncSess
     project_service = ProjectService(project_repo=project_repository, user_repo=user_repository)
     
     return await project_service.create_new_project(user_id=user_id, project_data=project_data)
-    
-    user = await db.get(User, user_id)
-    if user is None:
-        raise HTTPException(status_code=404, detail="Пользователь не найден")
-    new_project = Project(
-        title=project_data.title,
-        description=project_data.description
-    )
-    new_project.users.append(user)
-    db.add(new_project)
-    await db.commit()
-    await db.refresh(new_project)
-
-    return new_project
 
 @app.get("/users/{user_id}/projects", response_model=list[ProjectResponse])
 async def get_projects_by_user(user_id: int, db: AsyncSession = Depends(get_db)) -> list[Project]:
@@ -84,13 +58,6 @@ async def get_projects_by_user(user_id: int, db: AsyncSession = Depends(get_db))
     project_service = ProjectService(user_repo=user_repository, project_repo=project_repository)
     
     return await project_service.get_projects_by_user(user_id=user_id)
-    
-    user = await db.get(User, user_id)
-    if user is None:
-        raise HTTPException(status_code=404, detail="Пользователь не найден")
-    
-    await db.refresh(user, ["projects"])
-    return user.projects
 
 @app.post("/projects/{project_id}/tasks", response_model=TaskResponse)
 async def create_task(

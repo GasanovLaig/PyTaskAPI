@@ -17,15 +17,8 @@ class ProjectService:
         
         project_dict = project_data.model_dump()
         
-        new_project: Project = await self.project_repo.create(project_dict)
-        await self.project_repo.session.refresh(new_project, ["users"])
-        new_project.users = []
-        new_project.users.append(user)
-        await self.project_repo.session.commit()
-        await self.project_repo.session.refresh(new_project)
-        
-        return new_project
-    
+        return await self.project_repo.create_project_with_user(project_data=project_dict, user=user)
+
     async def get_projects_by_user(self, user_id: int) -> list[Project]:
         user = await self.user_repo.get_by_id(user_id)
         if not user:
