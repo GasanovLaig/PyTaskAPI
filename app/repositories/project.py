@@ -5,7 +5,7 @@ from app.models.project import Project
 from app.models.user import User
 from app.repositories.base import BaseRepository
 
-class ProjectRepository(BaseRepository):
+class ProjectRepository(BaseRepository[Project]):
     def __init__(self, session: AsyncSession):
         super().__init__(model=Project, session=session)
 

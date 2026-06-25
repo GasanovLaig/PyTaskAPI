@@ -10,6 +10,7 @@ from app.models.task import Task
 from app.models.tag import Tag
 from app.models.comment import Comment
 from app.repositories.project import ProjectRepository
+from app.repositories.task import TaskRepository
 from app.repositories.user import UserRepository
 from app.schemas.comment import CommentCreate, CommentResponse
 from app.schemas.project import ProjectCreate, ProjectResponse
@@ -18,6 +19,7 @@ from app.schemas.task import TaskCreate, TaskResponse
 from app.schemas.user import UserCreate, UserResponse
 from app.services.auth import AuthService
 from app.services.project import ProjectService
+from app.services.task import TaskService
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -43,7 +45,7 @@ async def create_user(user_data: UserCreate, db: AsyncSession = Depends(get_db))
     
     return await auth_service.register_new_user(user_data=user_data)
 
-@app.post("/users/{user_id}/projects", response_model=ProjectResponse)
+@app.post("/projects", response_model=ProjectResponse)
 async def create_project(project_data: ProjectCreate, user_id:int, db: AsyncSession = Depends(get_db)) -> Project:
     user_repository = UserRepository(session=db)
     project_repository = ProjectRepository(session=db)
@@ -65,39 +67,17 @@ async def create_task(
     data: TaskCreate,
     db: AsyncSession = Depends(get_db)
 ) -> Task:
-    project = await db.get(Project, project_id)
-    if project is None:
-        raise HTTPException(status_code=404, detail="Такого проекта не существует")
+    task_repository = TaskRepository(session=db)
+    project_repository = ProjectRepository(session=db)
+    user_repository = UserRepository(session=db)
     
-    if data.performer_id is not None:
-        performer = await db.get(User, data.performer_id)
-        if performer is None:
-            raise HTTPException(status_code=404, detail="Такой испольнитель не найден")
-    
-    if data.parent_task_id == 0:
-        data.parent_task_id = None
-
-    if data.parent_task_id is not None:
-        parent_task = await db.get(Task, data.parent_task_id)
-        if parent_task is None:
-            raise HTTPException(status_code=404, detail="Такая родительская задача не найдена")
-        
-        if parent_task.project_id != project_id:
-            raise HTTPException(status_code=400, detail="Родительская задача не принадлежит тому же проекту")
-
-    new_task = Task(
-        title=data.title,
-        description=data.description,
-        project_id=project_id,
-        performer_id=data.performer_id,
-        parent_task_id=data.parent_task_id
+    task_service = TaskService(
+        task_repo=task_repository,
+        project_repo=project_repository,
+        user_repo=user_repository
     )
     
-    db.add(new_task)
-    await db.commit()
-    await db.refresh(new_task, attribute_names=["tags", "subtasks"])
-
-    return new_task
+    return await task_service.create_task(project_id, data)
 
 @app.post("/tags", response_model=TagResponse)
 async def create_tag(data: TagCreate, db: AsyncSession = Depends(get_db)) -> Tag:
