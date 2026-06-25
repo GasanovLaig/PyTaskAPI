@@ -1,6 +1,5 @@
 from contextlib import asynccontextmanager
-from fastapi import Depends, FastAPI, HTTPException
-from sqlalchemy import text
+from fastapi import Depends, FastAPI
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import async_engine, async_session_factory, Base
@@ -9,7 +8,9 @@ from app.models.project import Project
 from app.models.task import Task
 from app.models.tag import Tag
 from app.models.comment import Comment
+from app.repositories.comment import CommentRepository
 from app.repositories.project import ProjectRepository
+from app.repositories.tag import TagRepository
 from app.repositories.task import TaskRepository
 from app.repositories.user import UserRepository
 from app.schemas.comment import CommentCreate, CommentResponse
@@ -18,7 +19,9 @@ from app.schemas.tag import TagCreate, TagResponse
 from app.schemas.task import TaskCreate, TaskResponse
 from app.schemas.user import UserCreate, UserResponse
 from app.services.auth import AuthService
+from app.services.comment import CommentService
 from app.services.project import ProjectService
+from app.services.tag import TagService
 from app.services.task import TaskService
 
 @asynccontextmanager
@@ -81,69 +84,38 @@ async def create_task(
 
 @app.post("/tags", response_model=TagResponse)
 async def create_tag(data: TagCreate, db: AsyncSession = Depends(get_db)) -> Tag:
-    result = await db.execute(text("SELECT id FROM tags WHERE name=:tag_name"), {"tag_name": data.name})
-    if result.scalar_one_or_none() is not None:
-        raise HTTPException(status_code=409, detail="Тег с таким названием уже существует")
+    tag_repository = TagRepository(session=db)
+    task_repository = TaskRepository(session=db)
     
-    new_tag = Tag(
-        name=data.name
+    tag_service = TagService(
+        tag_repo=tag_repository,
+        task_repo=task_repository
     )
-    db.add(new_tag)
-    await db.commit()
-    await db.refresh(new_tag)
-
-    return new_tag
+    
+    return await tag_service.create_new_tag(tag_data=data)
 
 @app.post("/tasks/{task_id}/tags/{tag_id}", response_model=TaskResponse)
 async def create_task_tags(task_id: int, tag_id: int, db: AsyncSession = Depends(get_db)) -> Task:
-    task = await db.get(Task, task_id)
-    if task is None:
-        raise HTTPException(status_code=404, detail="Такой задачи не существует")
+    tag_repository = TagRepository(session=db)
+    task_repository = TaskRepository(session=db)
     
-    tag = await db.get(Tag, tag_id)
-    if tag is None:
-        raise HTTPException(status_code=404, detail="Такого тега не существует")
+    tag_service = TagService(
+        tag_repo=tag_repository,
+        task_repo=task_repository
+    )
     
-    await db.refresh(task, ["tags"])
-
-    if tag not in task.tags:
-        task.tags.append(tag)
-
-    await db.commit()
-    await db.refresh(task, attribute_names=["tags"])
-
-    return task
+    return await tag_service.attach_tag_to_task(task_id=task_id, tag_id=tag_id)
 
 @app.post("/tasks/{task_id}/comments", response_model=CommentResponse)
 async def create_comment(task_id: int, data: CommentCreate, db: AsyncSession = Depends(get_db)) -> Comment:
-    task = await db.get(Task, task_id)
-    if task is None:
-        raise HTTPException(status_code=404, detail=f"Задача с ID {task_id} не найдена")
+    comment_repository = CommentRepository(session=db)
+    task_repository = TaskRepository(session=db)
+    author_repository = UserRepository(session=db)
     
-    author = await db.get(User, data.author_id)
-    if author is None:
-        raise HTTPException(status_code=404, detail="Автор с таким ID не найден")
-
-    if data.parent_comment_id == 0:
-        data.parent_comment_id = None
-
-    if data.parent_comment_id is not None:
-        parent_comment = await db.get(Comment, data.parent_comment_id)
-        if parent_comment is None:
-            raise HTTPException(status_code=404, detail="Родительский комментарий с таким ID не найден")
-        
-        if parent_comment.task_id != task_id:
-            raise HTTPException(status_code=400, detail="Родительский комментарий принадлежит к другой задаче")
-
-    new_comment = Comment(
-        text=data.text,
-        task_id=task_id,
-        author_id=data.author_id,
-        parent_comment_id=data.parent_comment_id
+    comment_service = CommentService(
+        comment_repo=comment_repository,
+        task_repo=task_repository,
+        author_repo=author_repository
     )
-
-    db.add(new_comment)
-    await db.commit()
-    await db.refresh(new_comment)
-
-    return new_comment
+    
+    return await comment_service.create_new_comment(task_id=task_id, comment_data=data)
