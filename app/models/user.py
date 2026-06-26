@@ -14,7 +14,7 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(Integer, Identity(always=True), primary_key=True)
     email: Mapped[str] = mapped_column(String(200), nullable=False, unique=True, index=True)
-    password: Mapped[str] = mapped_column(String(255), nullable=False)
+    hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     full_name: Mapped[str] = mapped_column(String(100), nullable=False)
 
     projects: Mapped[list["Project"]] = relationship(secondary=project_members_table, back_populates="users")

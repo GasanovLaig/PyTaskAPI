@@ -1,10 +1,9 @@
-
 from fastapi import HTTPException
 
+from app.core.security import get_password_hash
 from app.models.user import User
 from app.repositories.user import UserRepository
 from app.schemas.user import UserCreate
-
 
 class AuthService:
     def __init__(self, user_repo: UserRepository):
@@ -15,9 +14,10 @@ class AuthService:
         if existing_user:
             raise HTTPException(status_code=404, detail="Пользователь с таким email уже зарегистрирован")
         
+        hashed_pwd = get_password_hash(user_data.password)
         db_data = {
             "email": user_data.email,
-            "password": user_data.password,
+            "hashed_password": hashed_pwd,
             "full_name": user_data.full_name
         }
         
