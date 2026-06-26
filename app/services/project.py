@@ -24,5 +24,5 @@ class ProjectService:
         if not user:
             raise HTTPException(status_code=404, detail="Пользователь с таким ID не найден")
         
-        return await self.project_repo.get_user_projects(user_id=user_id)
+        return await self.project_repo.get_user_projects(user)
     

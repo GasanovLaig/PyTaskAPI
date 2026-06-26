@@ -13,7 +13,7 @@ from app.models.project import Project
 from app.models.task import Task
 from app.models.tag import Tag
 from app.models.comment import Comment
-from app.models.project_member import project_members_table
+from app.models.project_member import ProjectMember
 from app.models.task_tags import task_tags_table
 
 # this is the Alembic Config object, which provides

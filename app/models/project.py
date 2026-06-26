@@ -3,10 +3,9 @@ from sqlalchemy import Identity, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
-from app.models.project_member import project_members_table
 if TYPE_CHECKING:
-    from app.models.user import User
     from app.models.task import Task
+    from app.models.project_member import ProjectMember
 
 class Project(Base):
     __tablename__ = "projects"
@@ -15,5 +14,8 @@ class Project(Base):
     title: Mapped[str] = mapped_column(String(100), nullable=False)
     description: Mapped[str |  None] = mapped_column(Text, nullable=True)
 
-    users: Mapped[list["User"]] = relationship(secondary=project_members_table, back_populates="projects")
+    memberships: Mapped[list["ProjectMember"]] = relationship(
+        back_populates="project",
+        cascade="all, delete-orphan"
+    )
     tasks: Mapped[list["Task"]] = relationship("Task", back_populates="project")
