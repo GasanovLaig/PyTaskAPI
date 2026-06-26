@@ -18,6 +18,15 @@ class ProjectRepository(BaseRepository[Project]):
         await self.session.refresh(new_project)
         
         return new_project
+    
+    async def get_user_role_in_project(self, project_id: int, user_id: int) -> Role:
+        result = await self.session.scalars(
+            select(ProjectMember)
+            .where(ProjectMember.project_id == project_id, ProjectMember.user_id == user_id)
+        )
+        member = result.first()
+        
+        return member.role if member else None
 
     async def get_user_projects(self, user: User) -> list[Project]:
         result = await self.session.scalars(
