@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.task import TaskStatus
 from app.schemas.tag import TagResponse
@@ -20,5 +20,4 @@ class TaskResponse(BaseModel):
 
     tags: list[TagResponse] = []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 class CommentCreate(BaseModel):
     text: str = Field(..., description="Текст комметария")
@@ -12,5 +12,4 @@ class CommentResponse(BaseModel):
     author_id: int
     parent_comment_id: int | None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

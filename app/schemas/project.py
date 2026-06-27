@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 class ProjectCreate(BaseModel):
     title: str = Field(..., description="Название проекта")
@@ -9,5 +9,4 @@ class ProjectResponse(BaseModel):
     title: str
     description: str | None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
