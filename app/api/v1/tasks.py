@@ -3,7 +3,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies.role import CheckProjectRole
 from app.core.database import get_db
-from app.core.security import get_current_user
 from app.models.comment import Comment
 from app.models.project_member import Role
 from app.models.tag import Tag
@@ -28,7 +27,7 @@ async def create_task(
     project_id: int,
     data: TaskCreate,
     db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(CheckProjectRole([Role.OWNER, Role.MANAGER]))
+    _: User = Depends(CheckProjectRole([Role.OWNER, Role.MANAGER]))
 ) -> Task:
     task_repository = TaskRepository(session=db)
     project_repository = ProjectRepository(session=db)
@@ -41,6 +40,28 @@ async def create_task(
     )
     
     return await task_service.create_task(project_id, data)
+
+@router.get("/tasks/{task_id}", response_model=TaskResponse)
+async def get_task(
+    task_id: int,
+    db: AsyncSession = Depends(get_db)
+) -> Task:
+    task_repository = TaskRepository(session=db)
+    task_service = TaskService(task_repository, None, None)
+    
+    return await task_service.get_task_by_id(task_id)
+
+@router.delete("/projects/{project_id}/tasks/{task_id}")
+async def delete_task(
+    project_id: int,
+    task_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(CheckProjectRole([Role.OWNER, Role.MANAGER]))
+):
+    task_repository = TaskRepository(session=db)
+    task_service = TaskService(task_repository, None, None)
+    
+    return await task_service.delete_task(task_id)
 
 @router.post("/tags", response_model=TagResponse)
 async def create_tag(data: TagCreate, db: AsyncSession = Depends(get_db)) -> Tag:

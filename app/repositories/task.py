@@ -1,5 +1,6 @@
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models.tag import Tag
 from app.models.task import Task
@@ -16,6 +17,12 @@ class TaskRepository(BaseRepository[Task]):
         await self.session.refresh(new_task, attribute_names=["tags"])
         
         return new_task
+    
+    async def get_with_tags(self, task_id: int) -> Task | None:
+        return await self.get_by_id(
+            obj_id=task_id,
+            options=[selectinload(Task.tags)]
+        )
     
     async def attach_tag(self, task: Task, tag: Tag) -> Task:
         await self.session.refresh(task, attribute_names=["tags"])

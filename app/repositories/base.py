@@ -1,6 +1,7 @@
 from typing import Any, Generic, Type, TypeVar
-from sqlalchemy import select
+from sqlalchemy import Sequence, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql.base import ExecutableOption
 
 from app.core.database import Base
 
@@ -11,8 +12,12 @@ class BaseRepository(Generic[ModelType]):
         self.model = model
         self.session = session
         
-    async def get_by_id(self, obj_id: int) -> ModelType | None:
-        return await self.session.get(self.model, obj_id)
+    async def get_by_id(
+        self,
+        obj_id: int,
+        options: Sequence[ExecutableOption] | None = None
+    ) -> ModelType | None:
+        return await self.session.get(self.model, obj_id, options=options)
     
     async def get_all(self) -> list[ModelType]:
         result = await self.session.scalars(select(self.model))
@@ -27,3 +32,7 @@ class BaseRepository(Generic[ModelType]):
         await self.session.refresh(new_obj)
         
         return new_obj
+    
+    async def delete(self, obj):
+        await self.session.delete(obj)
+        await self.session.commit()

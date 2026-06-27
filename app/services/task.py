@@ -7,7 +7,7 @@ from app.repositories.user import UserRepository
 from app.schemas.task import TaskCreate, TaskCreate
 
 class TaskService:
-    def __init__(self, task_repo: TaskRepository, project_repo: ProjectRepository, user_repo: UserRepository):
+    def __init__(self, task_repo: TaskRepository, project_repo: ProjectRepository = None, user_repo: UserRepository = None):
         self.task_repo = task_repo
         self.project_repo = project_repo
         self.user_repo = user_repo
@@ -37,4 +37,20 @@ class TaskService:
         task_dict["project_id"] = project_id
         
         return await self.task_repo.create_task(task_data=task_dict)
+    
+    async def get_task_by_id(self, task_id: int) -> Task:
+        task = await self.task_repo.get_with_tags(task_id)
+        if not task:
+            raise HTTPException(status_code=404, detail="Задача с таким ID не найдена")
+        
+        return task
+    
+    async def delete_task(self, task_id: int):
+        task = await self.task_repo.get_by_id(task_id)
+        if not task:
+            raise HTTPException(status_code=404, detail="Задача с таким ID не найдена")
+        
+        await self.task_repo.delete(task)
+        
+        return {"detail": "Задача успешно удалена"}
         
