@@ -7,6 +7,7 @@ from pwdlib.hashers.argon2 import Argon2Hasher
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.config import settings
 from app.models.user import User
 from app.repositories.user import UserRepository
 
@@ -18,16 +19,12 @@ def get_password_hash(password: str) -> str:
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return password_hash.verify(plain_password, hash=hashed_password)
 
-SECRET_KEY = "SUPER_SECRET_KEY_FOR_DEV"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
-
 def create_access_token(data: dict) -> str:
     to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    expire = datetime.now(timezone.utc) + timedelta(minutes=settings.AUTH_EXPIRATION)
     to_encode.update({"exp": expire})
     
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    encoded_jwt = jwt.encode(to_encode, settings.AUTH_SECRET_KEY, algorithm=settings.AUTH_ALGORITHM)
     
     return encoded_jwt
 
@@ -44,7 +41,7 @@ async def get_current_user(
     )
     
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, settings.AUTH_SECRET_KEY, algorithms=[settings.AUTH_ALGORITHM])
         email: str = payload.get("sub")
         if email is None:
             raise credentials_exception

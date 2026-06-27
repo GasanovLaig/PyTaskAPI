@@ -1,9 +1,9 @@
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-DATABASE_URL = "postgresql+asyncpg://postgres:NOPASSWORD@localhost:5432/pytaskapi"
+from app.core.config import settings
 
-async_engine = create_async_engine(DATABASE_URL, echo=True)
+async_engine = create_async_engine(settings.DATABASE_URL_ASYNC, echo=True)
 async_session_factory = async_sessionmaker(
     bind=async_engine,
     class_=AsyncSession,

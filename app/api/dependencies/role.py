@@ -27,7 +27,7 @@ class CheckProjectRole:
         if user_role is None or user_role not in self.allowed_roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="У вас недостаточно прав для выолнения этого действия в проекте"
+                detail="У вас недостаточно прав для выполнения этого действия в проекте"
             )
             
         return current_user
