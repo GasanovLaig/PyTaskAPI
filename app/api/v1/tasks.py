@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies.role import CheckProjectRole
 from app.core.database import get_db
+from app.core.security import get_current_user
 from app.models.comment import Comment
 from app.models.project_member import Role
 from app.models.tag import Tag
@@ -15,7 +16,7 @@ from app.repositories.task import TaskRepository
 from app.repositories.user import UserRepository
 from app.schemas.comment import CommentCreate, CommentResponse
 from app.schemas.tag import TagCreate, TagResponse
-from app.schemas.task import TaskCreate, TaskResponse
+from app.schemas.task import TaskCreate, TaskResponse, TaskUpdate
 from app.services.comment import CommentService
 from app.services.tag import TagService
 from app.services.task import TaskService
@@ -50,6 +51,33 @@ async def get_task(
     task_service = TaskService(task_repository, None, None)
     
     return await task_service.get_task_by_id(task_id)
+
+@router.get("/projects/{project_id}/tasks", response_model=list[TaskResponse])
+async def get_project_tasks(
+    project_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> list[Task]:
+    task_service = TaskService(TaskRepository(db), ProjectRepository(db), UserRepository(db))
+    
+    return await task_service.get_project_tasks(project_id, current_user.id)
+
+@router.patch("/projects/{project_id}/tasks/{task_id}", response_model=TaskResponse)
+async def update_task(
+    project_id: int,
+    task_id: int,
+    data: TaskUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> Task:
+    task_service = TaskService(TaskRepository(db), ProjectRepository(db), UserRepository(db))
+    
+    return await task_service.update_task_details(
+        project_id=project_id,
+        task_id=task_id,
+        user_id=current_user.id,
+        task_data=data
+    )
 
 @router.delete("/projects/{project_id}/tasks/{task_id}")
 async def delete_task(

@@ -1,4 +1,5 @@
 from fastapi import HTTPException
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -34,4 +35,13 @@ class TaskRepository(BaseRepository[Task]):
         await self.session.refresh(task, attribute_names=["tags"])
         
         return task
+    
+    async def get_tasks_by_project(self, project_id: int) -> list[Task]:
+        result = await self.session.scalars(
+            select(Task)
+            .where(Task.project_id == project_id)
+            .options(selectinload(Task.tags))
+        )
+        
+        return result.all()
         

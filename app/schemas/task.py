@@ -21,3 +21,11 @@ class TaskResponse(BaseModel):
     tags: list[TagResponse] = []
 
     model_config = ConfigDict(from_attributes=True)
+    
+class TaskUpdate(BaseModel):
+    title: str | None = Field(None, description="Новое название задачи")
+    description: str | None = Field(None, description="Новое пописание задачи")
+    status: TaskStatus | None = Field(None, description="Новый статус задачи")
+    performer_id: int | None = Field(None, description="ID нового исполнителя")
+    
+    model_config = ConfigDict(from_attributes=True)

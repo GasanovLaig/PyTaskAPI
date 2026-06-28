@@ -48,3 +48,19 @@ async def update_project(
         user_id=current_user.id,
         project_data=data
     )
+    
+@router.delete("/projects/{project_id}")
+async def delete_project(
+    project_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> None:
+    projec_repository = ProjectRepository(session=db)
+    project_service = ProjectService(project_repo=projec_repository, user_repo=None)
+    
+    await project_service.delete_project(
+        project_id=project_id,
+        user_id=current_user.id
+    )
+    
+    return None

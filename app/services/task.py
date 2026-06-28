@@ -4,7 +4,7 @@ from app.models.task import Task
 from app.repositories.project import ProjectRepository
 from app.repositories.task import TaskRepository
 from app.repositories.user import UserRepository
-from app.schemas.task import TaskCreate, TaskCreate
+from app.schemas.task import TaskCreate, TaskCreate, TaskUpdate
 
 class TaskService:
     def __init__(self, task_repo: TaskRepository, project_repo: ProjectRepository = None, user_repo: UserRepository = None):
@@ -53,4 +53,29 @@ class TaskService:
         await self.task_repo.delete(task)
         
         return {"detail": "Задача успешно удалена"}
+    
+    async def get_project_tasks(self, project_id:int, user_id: int) -> list[Task]:
+        user_role = await self.project_repo.get_user_role_in_project(project_id, user_id)
+        if not user_role:
+            raise HTTPException(status_code=403, detail="Вы не являетесь участником этого проекта")
+        
+        return await self.task_repo.get_tasks_by_project(project_id)
+    
+    async def update_task_details(self, project_id: int, task_id: int, user_id: int, task_data: TaskUpdate) -> Task:
+        user_role = await self.project_repo.get_user_role_in_project(project_id, user_id)
+        if not user_role:
+            raise HTTPException(status_code=403, detail="Вы не являетесь участником этого проекта")
+        
+        task = await self.task_repo.get_with_tags(task_id)
+        if not task or task.project_id != project_id:
+            raise HTTPException(status_code=404, detail="Задача не найдена в данном проекте")
+        
+        if task_data.performer_id is not None:
+            performer = await self.user_repo.get_by_id(task_data.performer_id)
+            if not performer:
+                raise HTTPException(status_code=404, detail="Указанный исполнитель не найден")
+            
+        update_dict = task_data.model_dump(exclude_unset=True)
+        
+        return await self.task_repo.update(task_id, update_dict)
         

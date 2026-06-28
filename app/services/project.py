@@ -40,3 +40,16 @@ class ProjectService:
         
         return updated_project
     
+    async def delete_project(self, project_id: int, user_id: int) -> None:
+        project = await self.project_repo.get_by_id(project_id)
+        if not project:
+            raise HTTPException(status_code=404, detail="Проект с таким ID не найден")
+        
+        user_role = await self.project_repo.get_user_role_in_project(project_id, user_id)
+        if not user_role:
+            raise HTTPException(status_code=403, detail="Только владелец может редактировать проект")
+        
+        await self.project_repo.delete(project)
+        
+        return None
+    
