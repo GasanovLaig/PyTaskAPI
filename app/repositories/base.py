@@ -36,3 +36,18 @@ class BaseRepository(Generic[ModelType]):
     async def delete(self, obj):
         await self.session.delete(obj)
         await self.session.commit()
+        
+    async def update(self, obj_id: int, data: dict[str, Any]) -> ModelType | None:
+        obj = await self.get_by_id(obj_id)
+        if not obj:
+            return None
+        
+        for key, value in data.items():
+            if hasattr(obj, key):
+                setattr(obj, key, value)
+                
+        self.session.add(obj)
+        await self.session.commit()
+        await self.session.refresh(obj)
+        
+        return obj
