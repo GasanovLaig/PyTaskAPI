@@ -44,4 +44,27 @@ class TaskRepository(BaseRepository[Task]):
         )
         
         return result.all()
+    
+    async def get_project_task_tree(self, project_id: int) -> list[Task]:
+        result = await self.session.scalars(
+            select(Task)
+            .where(Task.project_id == project_id, Task.parent_task_id == None)
+            .options(
+                selectinload(Task.tags),
+                selectinload(Task.subtasks)
+                .selectinload(Task.tags),
+                selectinload(Task.subtasks)
+                .selectinload(Task.subtasks)
+                .selectinload(Task.tags),
+                selectinload(Task.subtasks)
+                .selectinload(Task.subtasks)
+                .selectinload(Task.subtasks)
+                .selectinload(Task.tags),
+                selectinload(Task.subtasks)
+                .selectinload(Task.subtasks)
+                .selectinload(Task.subtasks)
+                .selectinload(Task.subtasks)
+            )
+        )
         
+        return result.all()

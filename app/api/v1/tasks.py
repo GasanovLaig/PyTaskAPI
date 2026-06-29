@@ -16,7 +16,7 @@ from app.repositories.task import TaskRepository
 from app.repositories.user import UserRepository
 from app.schemas.comment import CommentCreate, CommentResponse
 from app.schemas.tag import TagCreate, TagResponse
-from app.schemas.task import TaskCreate, TaskResponse, TaskUpdate
+from app.schemas.task import TaskCreate, TaskResponse, TaskTreeResponse, TaskUpdate
 from app.services.comment import CommentService
 from app.services.tag import TagService
 from app.services.task import TaskService
@@ -182,3 +182,13 @@ async def delete_comment(
     await comment_service.delete_comment_by_id(comment_id, current_user.id)
     
     return None
+
+@router.get("/projects/{project_id}/tasks/tree", response_model=list[TaskTreeResponse])
+async def get_tasks_tree(
+    project_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> list[TaskTreeResponse]:
+    task_service = TaskService(TaskRepository(db), ProjectRepository(db))
+    
+    return await task_service.get_project_tasks_tree(project_id, current_user.id)

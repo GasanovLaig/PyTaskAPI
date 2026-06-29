@@ -78,4 +78,15 @@ class TaskService:
         update_dict = task_data.model_dump(exclude_unset=True)
         
         return await self.task_repo.update(task_id, update_dict)
+    
+    async def get_project_tasks_tree(self, project_id: int, user_id: int) -> list[Task]:
+        project = await self.project_repo.get_by_id(project_id)
+        if not project:
+            raise HTTPException(status_code=404, detail="Проект с таким ID не найден")
+        
+        user_role = await self.project_repo.get_user_role_in_project(project_id, user_id)
+        if not user_role:
+            raise HTTPException(status_code=403, detail="Вы не являетесь участником этого проекта")
+        
+        return await self.task_repo.get_project_task_tree(project_id)
         

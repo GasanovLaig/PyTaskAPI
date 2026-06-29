@@ -29,3 +29,18 @@ class TaskUpdate(BaseModel):
     performer_id: int | None = Field(None, description="ID нового исполнителя")
     
     model_config = ConfigDict(from_attributes=True)
+    
+class TaskTreeResponse(BaseModel):
+    id: int
+    title: str
+    description: str | None
+    status: TaskStatus
+    project_id: int
+    performer_id: int | None
+    parent_task_id: int | None
+    tags: list[TagResponse] = []
+    subtasks: list["TaskTreeResponse"] = []
+    
+    model_config = ConfigDict(from_attributes=True)
+    
+TaskTreeResponse.model_rebuild()
