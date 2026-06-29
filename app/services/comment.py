@@ -1,16 +1,19 @@
 from fastapi import HTTPException
 
+from app.models.comment import Comment
 from app.repositories.comment import CommentRepository
+from app.repositories.project import ProjectRepository
 from app.repositories.task import TaskRepository
 from app.repositories.user import UserRepository
 from app.schemas.comment import CommentCreate
 
 class CommentService:
     def __init__(self, comment_repo: CommentRepository, task_repo: TaskRepository,
-                 author_repo: UserRepository):
+                 author_repo: UserRepository, project_repo: ProjectRepository = None):
         self.comment_repo = comment_repo
         self.task_repo = task_repo
         self.author_repo = author_repo
+        self.project_repo = project_repo
         
     async def create_new_comment(self, task_id: int, comment_data: CommentCreate):
         task = await self.task_repo.get_by_id(task_id)
@@ -36,4 +39,27 @@ class CommentService:
         data_dict["task_id"] = task_id
         
         return await self.comment_repo.create_comment(comment_data=data_dict)
+    
+    async def get_task_comments(self, project_id: int, task_id: int, user_id: int) -> list[Comment]:
+        task = await self.task_repo.get_by_id(task_id)
+        if not task or task.project_id != project_id:
+            raise HTTPException(status_code=404, detail="Задача с таким ID не найдена")
+        
+        user_role = await self.project_repo.get_user_role_in_project(project_id, user_id)
+        if not user_role:
+            raise HTTPException(status_code=403, detail="Вы не являетесь участником проекта")
+        
+        return await self.comment_repo.get_comments_by_task(task_id)
+        
+    async def delete_comment_by_id(self, comment_id: int, user_id: int) -> None:
+        comment = await self.comment_repo.get_by_id(comment_id)
+        if not comment:
+            raise HTTPException(status_code=404, detail="Комментарий с таким ID не найден")
+        
+        if comment.author_id != user_id:
+            raise HTTPException(status_code=403, detail="Вы можете удалять только свои комментарии")
+        
+        await self.comment_repo.delete(comment)
+        
+        return None 
                 

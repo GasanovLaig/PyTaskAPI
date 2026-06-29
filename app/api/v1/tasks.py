@@ -103,6 +103,24 @@ async def create_tag(data: TagCreate, db: AsyncSession = Depends(get_db)) -> Tag
     
     return await tag_service.create_new_tag(tag_data=data)
 
+@router.get("/tags", response_model=list[TagResponse])
+async def get_all_tags(
+    db: AsyncSession = Depends(get_db)
+) -> list[Tag]:
+    tag_service = TagService(TagRepository(db), TaskRepository(db))
+    
+    return await tag_service.get_all_tags()
+
+@router.delete("/tags/{tag_id}", status_code=204)
+async def delete_tag(
+    tag_id: int,
+    db: AsyncSession = Depends(get_db)
+) -> None:
+    tag_service = TagService(TagRepository(db), TaskRepository(db))
+    await tag_service.delete_tag_by_id(tag_id)
+    
+    return None
+
 @router.put("/tasks/{task_id}/tags/{tag_id}", response_model=TaskResponse)
 async def attach_tag_to_task(task_id: int, tag_id: int, db: AsyncSession = Depends(get_db)) -> Task:
     tag_repository = TagRepository(session=db)
@@ -128,3 +146,39 @@ async def create_comment(task_id: int, data: CommentCreate, db: AsyncSession = D
     )
     
     return await comment_service.create_new_comment(task_id=task_id, comment_data=data)
+
+@router.get("/projects/{project_id}/tasks/{task_id}/comments", response_model=list[CommentResponse])
+async def get_comments(
+    project_id: int,
+    task_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> list[Comment]:
+    comment_service = CommentService(
+        CommentRepository(db),
+        TaskRepository(db),
+        UserRepository(db),
+        ProjectRepository(db)
+    )
+    
+    return await comment_service.get_task_comments(
+        project_id=project_id,
+        task_id=task_id,
+        user_id=current_user.id
+    )
+    
+@router.delete("/comments/{comment_id}", status_code=204)
+async def delete_comment(
+    comment_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> None:
+    comment_service = CommentService(
+        CommentRepository(db),
+        TaskRepository(db),
+        UserRepository(db)
+    )
+
+    await comment_service.delete_comment_by_id(comment_id, current_user.id)
+    
+    return None

@@ -18,6 +18,18 @@ class TagService:
         
         return await self.tag_repo.create(tag_data.model_dump())
     
+    async def get_all_tags(self) -> list[Tag]:
+        return await self.tag_repo.get_all()
+    
+    async def delete_tag_by_id(self, tag_id: int) -> None:
+        tag = await self.tag_repo.get_by_id(tag_id)
+        if not tag:
+            raise HTTPException(status_code=404, detail="Тег с таким ID не найден")
+        
+        await self.tag_repo.delete(tag)
+        
+        return None
+    
     async def attach_tag_to_task(self, task_id: int, tag_id: int) -> Task:
         task = await self.task_repo.get_by_id(task_id)
         if task is None:
