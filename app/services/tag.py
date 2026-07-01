@@ -2,42 +2,52 @@ from fastapi import HTTPException
 
 from app.models.tag import Tag
 from app.models.task import Task
-from app.repositories.tag import TagRepository
-from app.repositories.task import TaskRepository
 from app.schemas.tag import TagCreate
+from app.services.uow import UnitOfWork
 
 class TagService:
-    def __init__(self, tag_repo: TagRepository, task_repo: TaskRepository):
-        self.tag_repo = tag_repo
-        self.task_repo = task_repo
+    def __init__(self, uow: UnitOfWork):
+        self.uow = uow
         
     async def create_new_tag(self, tag_data: TagCreate) -> Tag:
-        exisiting_tag = await self.tag_repo.get_by_name(tag_data.name)
-        if exisiting_tag:
-            raise HTTPException(status_code=409, detail="Тег с таким именем уже существует")
-        
-        return await self.tag_repo.create(tag_data.model_dump())
+        async with self.uow:
+            exisiting_tag = await self.uow.tags.get_by_name(tag_data.name)
+            if exisiting_tag:
+                raise HTTPException(status_code=409, detail="Тег с таким именем уже существует")
+            
+            new_tag = await self.uow.tags.create(tag_data.model_dump())
+            await self.uow.commit()
+            await self.uow.refresh(new_tag)
+            
+            return new_tag
     
     async def get_all_tags(self) -> list[Tag]:
-        return await self.tag_repo.get_all()
+        async with self.uow:
+            return await self.uow.tags.get_all()
     
     async def delete_tag_by_id(self, tag_id: int) -> None:
-        tag = await self.tag_repo.get_by_id(tag_id)
-        if not tag:
-            raise HTTPException(status_code=404, detail="Тег с таким ID не найден")
-        
-        await self.tag_repo.delete(tag)
-        
-        return None
+        async with self.uow:
+            tag = await self.uow.tags.get_by_id(tag_id)
+            if not tag:
+                raise HTTPException(status_code=404, detail="Тег с таким ID не найден")
+            
+            await self.uow.tags.delete(tag)
+            await self.uow.commit()
+            
+            return None
     
     async def attach_tag_to_task(self, task_id: int, tag_id: int) -> Task:
-        task = await self.task_repo.get_by_id(task_id)
-        if task is None:
-            raise HTTPException(status_code=404, detail="Задача с таким ID не найдена")
-        
-        tag = await self.tag_repo.get_by_id(tag_id)
-        if tag is None:
-            raise HTTPException(status_code=404, detail="Тег с таким ID не найден")
-        
-        return await self.task_repo.attach_tag(task, tag)
+        async with self.uow:
+            task = await self.uow.tasks.get_by_id(task_id)
+            if task is None:
+                raise HTTPException(status_code=404, detail="Задача с таким ID не найдена")
+            
+            tag = await self.uow.tags.get_by_id(tag_id)
+            if tag is None:
+                raise HTTPException(status_code=404, detail="Тег с таким ID не найден")
+            
+            task_with_tag = await self.uow.tasks.attach_tag(task, tag)
+            await self.uow.commit()
+            
+            return task_with_tag
     

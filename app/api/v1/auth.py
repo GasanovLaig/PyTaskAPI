@@ -1,29 +1,29 @@
 from fastapi import APIRouter, Depends
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db
+from app.api.dependencies.uow import get_uow
 from app.models.user import User
-from app.repositories.user import UserRepository
 from app.schemas.user import UserCreate, UserResponse
 from app.services.auth import AuthService
+from app.services.uow import UnitOfWork
 
 router = APIRouter(prefix="/auth", tags=["Аутентификация"])
 
 @router.post("/users", response_model=UserResponse)
-async def create_user(user_data: UserCreate, db: AsyncSession = Depends(get_db)) -> User:
-    user_repository = UserRepository(session=db)
-    auth_service = AuthService(user_repo=user_repository)
+async def create_user(
+    user_data: UserCreate,
+    uow: UnitOfWork = Depends(get_uow)
+) -> User:
+    auth_service = AuthService(uow)
     
-    return await auth_service.register_new_user(user_data=user_data)
+    return await auth_service.register_new_user(user_data)
 
 @router.post("/login")
 async def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
-    db: AsyncSession = Depends(get_db)
+    uow: UnitOfWork = Depends(get_uow)
 ) -> dict:
-    user_repository = UserRepository(session=db)
-    auth_service = AuthService(user_repo=user_repository)
+    auth_service = AuthService(uow)
     
     token = await auth_service.authenticate_user(
         email=form_data.username,

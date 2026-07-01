@@ -15,9 +15,10 @@ class BaseRepository(Generic[ModelType]):
     async def get_by_id(
         self,
         obj_id: int,
-        options: Sequence[ExecutableOption] | None = None
+        options: Sequence[ExecutableOption] | None = None,
+        populate_existing: bool = False
     ) -> ModelType | None:
-        return await self.session.get(self.model, obj_id, options=options)
+        return await self.session.get(self.model, obj_id, options=options, populate_existing=populate_existing)
     
     async def get_all(self) -> list[ModelType]:
         result = await self.session.scalars(select(self.model))
@@ -28,26 +29,16 @@ class BaseRepository(Generic[ModelType]):
         new_obj = self.model(**data)
         self.session.add(new_obj)
         
-        await self.session.commit()
-        await self.session.refresh(new_obj)
-        
         return new_obj
     
     async def delete(self, obj):
         await self.session.delete(obj)
-        await self.session.commit()
         
-    async def update(self, obj_id: int, data: dict[str, Any]) -> ModelType | None:
-        obj = await self.get_by_id(obj_id)
-        if not obj:
-            return None
-        
+    async def update(self, obj: Type[ModelType], data: dict[str, Any]) -> ModelType | None:
         for key, value in data.items():
             if hasattr(obj, key):
                 setattr(obj, key, value)
                 
         self.session.add(obj)
-        await self.session.commit()
-        await self.session.refresh(obj)
         
         return obj

@@ -14,15 +14,15 @@ class TaskRepository(BaseRepository[Task]):
     async def create_task(self, task_data: dict) -> Task:
         new_task = Task(**task_data)
         self.session.add(new_task)
-        await self.session.commit()
-        await self.session.refresh(new_task, attribute_names=["tags"])
+        await self.session.flush()
         
-        return new_task
+        return await self.get_with_tags(new_task.id)
     
     async def get_with_tags(self, task_id: int) -> Task | None:
         return await self.get_by_id(
             obj_id=task_id,
-            options=[selectinload(Task.tags)]
+            options=[selectinload(Task.tags)],
+            populate_existing=True
         )
     
     async def attach_tag(self, task: Task, tag: Tag) -> Task:
@@ -31,8 +31,6 @@ class TaskRepository(BaseRepository[Task]):
             raise HTTPException(status_code=409, detail="Тег с таким названием уже прикреплен к задаче")
             
         task.tags.append(tag)
-        await self.session.commit()
-        await self.session.refresh(task, attribute_names=["tags"])
         
         return task
     

@@ -12,8 +12,6 @@ class CommentRepository(BaseRepository[Comment]):
     async def create_comment(self, comment_data: dict) -> Comment:
         new_comment = Comment(**comment_data)
         self.session.add(new_comment)
-        await self.session.commit()
-        await self.session.refresh(new_comment)
         
         return new_comment
     

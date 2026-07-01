@@ -14,8 +14,6 @@ class ProjectRepository(BaseRepository[Project]):
         new_project = Project(**project_data)
         new_project.memberships.append(ProjectMember(user_id=user.id, role=Role.OWNER))
         self.session.add(new_project)
-        await self.session.commit()
-        await self.session.refresh(new_project)
         
         return new_project
     
