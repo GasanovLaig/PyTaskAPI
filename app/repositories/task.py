@@ -44,25 +44,24 @@ class TaskRepository(BaseRepository[Task]):
         return result.all()
     
     async def get_project_task_tree(self, project_id: int) -> list[Task]:
+        start_cte = select(Task.id).where(
+            Task.project_id == project_id,
+            Task.parent_task_id == None
+        ).cte(name="task_tree", recursive=True)
+        
+        recursive_cte = start_cte.union_all(
+            select(Task.id).where(Task.parent_task_id == start_cte.c.id)
+        )
+        
         result = await self.session.scalars(
             select(Task)
-            .where(Task.project_id == project_id, Task.parent_task_id == None)
+            .where(Task.id.in_(select(recursive_cte.c.id)))
             .options(
                 selectinload(Task.tags),
                 selectinload(Task.subtasks)
-                .selectinload(Task.tags),
-                selectinload(Task.subtasks)
-                .selectinload(Task.subtasks)
-                .selectinload(Task.tags),
-                selectinload(Task.subtasks)
-                .selectinload(Task.subtasks)
-                .selectinload(Task.subtasks)
-                .selectinload(Task.tags),
-                selectinload(Task.subtasks)
-                .selectinload(Task.subtasks)
-                .selectinload(Task.subtasks)
-                .selectinload(Task.subtasks)
             )
         )
         
-        return result.all()
+        all_tasks = result.all()
+        
+        return [task for task in all_tasks if task.parent_task_id is None]

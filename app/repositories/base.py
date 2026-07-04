@@ -1,5 +1,5 @@
 from typing import Any, Generic, Type, TypeVar
-from sqlalchemy import Sequence, select
+from sqlalchemy import Sequence, delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.base import ExecutableOption
 
@@ -18,7 +18,12 @@ class BaseRepository(Generic[ModelType]):
         options: Sequence[ExecutableOption] | None = None,
         populate_existing: bool = False
     ) -> ModelType | None:
-        return await self.session.get(self.model, obj_id, options=options, populate_existing=populate_existing)
+        return await self.session.get(
+            self.model,
+            obj_id,
+            options=options,
+            populate_existing=populate_existing
+        )
     
     async def get_all(self) -> list[ModelType]:
         result = await self.session.scalars(select(self.model))
@@ -30,9 +35,6 @@ class BaseRepository(Generic[ModelType]):
         self.session.add(new_obj)
         
         return new_obj
-    
-    async def delete(self, obj):
-        await self.session.delete(obj)
         
     async def update(self, obj: Type[ModelType], data: dict[str, Any]) -> ModelType | None:
         for key, value in data.items():
@@ -42,3 +44,20 @@ class BaseRepository(Generic[ModelType]):
         self.session.add(obj)
         
         return obj
+    
+    async def update_by_id(self, obj_id: int, data: dict[str, Any]) -> ModelType | None:
+        return await self.session.execute(
+            update(self.model)
+                .where(self.model.id == obj_id)
+                .values(**data)
+            )
+    
+    async def delete(self, obj: Type[ModelType]):
+        await self.session.delete(obj)
+        
+    async def delete_by_id(self, obj_id: int):
+        await self.session.execute(
+            delete(self.model)
+            .where(self.model.id == obj_id)
+        )
+        

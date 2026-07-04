@@ -25,22 +25,11 @@ class TagService:
         async with self.uow:
             return await self.uow.tags.get_all()
     
-    async def delete_tag_by_id(self, tag_id: int) -> None:
-        async with self.uow:
-            tag = await self.uow.tags.get_by_id(tag_id)
-            if not tag:
-                raise HTTPException(status_code=404, detail="Тег с таким ID не найден")
-            
-            await self.uow.tags.delete(tag)
-            await self.uow.commit()
-            
-            return None
-    
-    async def attach_tag_to_task(self, task_id: int, tag_id: int) -> Task:
+    async def attach_tag_to_task(self, project_id: int, task_id: int, tag_id: int) -> Task:
         async with self.uow:
             task = await self.uow.tasks.get_by_id(task_id)
-            if task is None:
-                raise HTTPException(status_code=404, detail="Задача с таким ID не найдена")
+            if task is None or task.project_id != project_id:
+                raise HTTPException(status_code=404, detail="Задача с таким ID не найдена в данном проекте")
             
             tag = await self.uow.tags.get_by_id(tag_id)
             if tag is None:
@@ -51,3 +40,14 @@ class TagService:
             
             return task_with_tag
     
+    async def delete_tag_by_id(self, tag_id: int) -> None:
+        async with self.uow:
+            tag = await self.uow.tags.get_by_id(tag_id)
+            if not tag:
+                raise HTTPException(status_code=404, detail="Тег с таким ID не найден")
+            
+            await self.uow.tags.delete(tag)
+            await self.uow.commit()
+            
+            return None
+        

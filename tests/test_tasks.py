@@ -51,8 +51,8 @@ async def test_create_task_rbac_flow(client: AsyncClient):
         json=task_payload,
         headers={"Authorization": f"Bearer {stranger_token}"}
     )
-    assert bad_result.status_code == 403
-    assert bad_result.json()["detail"] == "У вас недостаточно прав для выполнения этого действия в проекте"
+    assert bad_result.status_code == 404
+    assert bad_result.json()["detail"] == "Проект не найден или у вас нет к нему доступа"
     
     # 5. Проверка №2: Владелец проекта добавляет задачу в свой проект -> Ожидаем 200 OK
     good_result = await client.post(

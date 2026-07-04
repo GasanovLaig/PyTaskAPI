@@ -2,7 +2,6 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class CommentCreate(BaseModel):
     text: str = Field(..., description="Текст комметария")
-    author_id: int = Field(..., description="Автор комментария")
     parent_comment_id: int | None = Field(None, description="ID родительского комментария")
 
 class CommentResponse(BaseModel):

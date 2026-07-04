@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends
 
 from app.api.dependencies.role import CheckProjectRole
 from app.api.dependencies.uow import get_uow
-from app.core.security import get_current_user
 from app.services.uow import UnitOfWork
 from app.models.project_member import Role
 from app.models.task import Task
@@ -15,58 +14,59 @@ router = APIRouter(tags=["Задачи"])
 @router.post("/projects/{project_id}/tasks", response_model=TaskResponse)
 async def create_task(
     project_id: int,
-    data: TaskCreate,
+    task_data: TaskCreate,
     uow: UnitOfWork = Depends(get_uow),
     _: User = Depends(CheckProjectRole([Role.OWNER, Role.MANAGER]))
 ) -> Task:
     task_service = TaskService(uow)
     
-    return await task_service.create_task(project_id, data)
+    return await task_service.create_task(project_id, task_data)
 
-@router.get("/tasks/{task_id}", response_model=TaskResponse)
+@router.get("/projects/{project_id}/tasks/tree", response_model=list[TaskTreeResponse])
+async def get_project_tasks_tree(
+    project_id: int,
+    uow: UnitOfWork = Depends(get_uow),
+    _: User = Depends(CheckProjectRole([Role.OWNER, Role.MANAGER, Role.DEVELOPER]))
+) -> list[Task]:
+    task_service = TaskService(uow)
+    
+    return await task_service.get_project_tasks_tree(project_id)
+
+@router.get("/projects/{project_id}/tasks/{task_id}", response_model=TaskResponse)
 async def get_task(
+    project_id: int,
     task_id: int,
-    uow: UnitOfWork = Depends(get_uow)
+    uow: UnitOfWork = Depends(get_uow),
+    _: User = Depends(CheckProjectRole([Role.OWNER, Role.MANAGER, Role.DEVELOPER]))
 ) -> Task:
     task_service = TaskService(uow)
     
-    return await task_service.get_task_by_id(task_id)
+    return await task_service.get_task_by_id(project_id, task_id)
 
 @router.get("/projects/{project_id}/tasks", response_model=list[TaskResponse])
 async def get_project_tasks(
     project_id: int,
     uow: UnitOfWork = Depends(get_uow),
-    current_user: User = Depends(get_current_user)
+    _: User = Depends(CheckProjectRole([Role.OWNER, Role.MANAGER, Role.DEVELOPER]))
 ) -> list[Task]:
     task_service = TaskService(uow)
     
-    return await task_service.get_project_tasks(project_id, current_user.id)
-
-@router.get("/projects/{project_id}/tasks/tree", response_model=list[TaskTreeResponse])
-async def get_tasks_tree(
-    project_id: int,
-    uow: UnitOfWork = Depends(get_uow),
-    current_user: User = Depends(get_current_user)
-) -> list[Task]:
-    task_service = TaskService(uow)
-    
-    return await task_service.get_project_tasks_tree(project_id, current_user.id)
+    return await task_service.get_project_tasks(project_id)
 
 @router.patch("/projects/{project_id}/tasks/{task_id}", response_model=TaskResponse)
 async def update_task(
     project_id: int,
     task_id: int,
-    data: TaskUpdate,
+    task_data: TaskUpdate,
     uow: UnitOfWork = Depends(get_uow),
-    current_user: User = Depends(get_current_user)
+    _: User = Depends(CheckProjectRole([Role.OWNER, Role.MANAGER]))
 ) -> Task:
     task_service = TaskService(uow)
     
     return await task_service.update_task_details(
-        project_id=project_id,
-        task_id=task_id,
-        user_id=current_user.id,
-        task_data=data
+        project_id,
+        task_id,
+        task_data
     )
 
 @router.delete("/projects/{project_id}/tasks/{task_id}", status_code=204)
@@ -77,6 +77,6 @@ async def delete_task(
     _: User = Depends(CheckProjectRole([Role.OWNER, Role.MANAGER]))
 ) -> None:
     task_service = TaskService(uow)
-    await task_service.delete_task(task_id)
+    await task_service.delete_task(project_id, task_id)
     
     return None
