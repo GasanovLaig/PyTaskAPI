@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import exists, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.project import Project
@@ -17,16 +17,15 @@ class ProjectRepository(BaseRepository[Project]):
         return new_project
     
     async def get_user_role_in_project(self, project_id: int, user_id: int) -> Role:
-        result = await self.session.scalars(
-            select(ProjectMember)
+        role = await self.session.scalar(
+            select(ProjectMember.role)
             .where(
                 ProjectMember.project_id == project_id,
                 ProjectMember.user_id == user_id
             )
         )
-        member = result.first()
         
-        return member.role if member else None
+        return role
 
     async def get_my_projects(self, current_user_id: int) -> list[Project]:
         result = await self.session.scalars(
@@ -38,13 +37,13 @@ class ProjectRepository(BaseRepository[Project]):
         return result.all()
     
     async def is_member(self, project_id: int, user_id: int) -> bool:
-        stmt = (
-            select(ProjectMember)
+        query = (
+            exists()
             .where(
                 ProjectMember.project_id == project_id,
                 ProjectMember.user_id == user_id
             )
-            .exists()
+            .select()
         )
         
-        return bool(await self.session.scalar(stmt))
+        return bool(await self.session.scalar(query))

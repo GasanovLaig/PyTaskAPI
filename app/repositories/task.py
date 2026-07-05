@@ -26,13 +26,16 @@ class TaskRepository(BaseRepository[Task]):
         )
     
     async def attach_tag(self, task: Task, tag: Tag) -> Task:
-        await self.session.refresh(task, attribute_names=["tags"])
-        if tag in task.tags:
-            raise HTTPException(status_code=409, detail="Тег с таким названием уже прикреплен к задаче")
-            
-        task.tags.append(tag)
+        task_with_tags = await self.get_with_tags(task.id)
+        if task_with_tags is not None:
+            raise HTTPException(status_code=404, detail="Задача с таким ID не найдена")
         
-        return task
+        if tag in task_with_tags.tags:
+            raise HTTPException(status_code=409, detail="Тег с таким названием уже прикреплен к задаче")
+        
+        task_with_tags.tags.append(tag)
+        
+        return task_with_tags
     
     async def get_tasks_by_project(self, project_id: int) -> list[Task]:
         result = await self.session.scalars(

@@ -9,8 +9,23 @@ class TagRepository(BaseRepository[Tag]):
         super().__init__(model=Tag, session=session)
         self.session = session
         
-    async def get_by_name(self, name: str) -> Tag | None:
-        result = await self.session.execute(select(Tag).where(Tag.name == name))
+    # TODO: оптимизировать с exists
+    async def get_by_name(self, project_id: int, name: str) -> Tag | None:
+        result = await self.session.execute(
+            select(Tag)
+            .where(
+                Tag.name == name,
+                Tag.project_id == project_id
+            )
+        )
         
         return result.scalar_one_or_none()
+    
+    async def get_all_tags_by_project(self, project_id: int) -> list[Tag] | None:
+        result = await self.session.scalars(
+            select(Tag)
+            .where(Tag.project_id == project_id)
+        )
+        
+        return result.all()
     

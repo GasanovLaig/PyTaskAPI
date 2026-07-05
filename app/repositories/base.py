@@ -11,7 +11,7 @@ class BaseRepository(Generic[ModelType]):
     def __init__(self, model: Type[ModelType], session: AsyncSession):
         self.model = model
         self.session = session
-        
+                    
     async def get_by_id(
         self,
         obj_id: int,
@@ -46,11 +46,15 @@ class BaseRepository(Generic[ModelType]):
         return obj
     
     async def update_by_id(self, obj_id: int, data: dict[str, Any]) -> ModelType | None:
-        return await self.session.execute(
+        query = (
             update(self.model)
-                .where(self.model.id == obj_id)
-                .values(**data)
-            )
+            .where(self.model.id == obj_id)
+            .values(**data)
+            .returning(self.model)
+        )
+        result = await self.session.execute(query)
+        
+        return result.scalar_one_or_none()
     
     async def delete(self, obj: Type[ModelType]):
         await self.session.delete(obj)

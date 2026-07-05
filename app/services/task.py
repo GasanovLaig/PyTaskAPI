@@ -11,8 +11,8 @@ class TaskService:
     async def create_task(self, project_id: int, task_data: TaskCreate) -> Task:
         async with self.uow:
             if task_data.performer_id is not None:
-                is_member = await self.uow.projects.is_member(project_id, task_data.performer_id)
-                if not is_member:
+                is_project_member = await self.uow.projects.is_member(project_id, task_data.performer_id)
+                if not is_project_member:
                     raise HTTPException(
                         status_code=404,
                         detail="Исполнитель с таким ID не найден в данном проекте"
@@ -59,9 +59,9 @@ class TaskService:
                 raise HTTPException(status_code=404, detail="Задача с таким ID не найдена в данном проекте")
             
             if task_data.performer_id is not None:
-                performer = await self.uow.users.get_by_id(task_data.performer_id)
-                if not performer:
-                    raise HTTPException(status_code=404, detail="Исполнитель с таким ID не найден")
+                is_project_member = await self.uow.projects.is_member(task_data.performer_id)
+                if not is_project_member:
+                    raise HTTPException(status_code=404, detail="Исполнитель с таким ID не найден в данном проекте")
                 
             update_dict = task_data.model_dump(exclude_unset=True)
             updated_task = await self.uow.tasks.update(task, update_dict)

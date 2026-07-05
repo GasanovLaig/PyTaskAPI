@@ -8,7 +8,7 @@ class CommentService:
     def __init__(self, uow: UnitOfWork):
         self.uow = uow
         
-    async def create_new_comment(self, project_id: int, task_id: int, author_id: int, comment_data: CommentCreate):
+    async def create_new_comment(self, project_id: int, task_id: int, current_user_id: int, comment_data: CommentCreate):
         async with self.uow:
             task = await self.uow.tasks.get_by_id(task_id)
             if task is None or task.project_id != project_id:
@@ -19,18 +19,12 @@ class CommentService:
             
             if comment_data.parent_comment_id is not None:
                 parent_comment = await self.uow.comments.get_by_id(comment_data.parent_comment_id)
-                if parent_comment is None:
+                if parent_comment is None or parent_comment.task_id != task_id:
                     raise HTTPException(status_code=404, detail="Родительский комментарий с таким ID не найден")
-                    
-                if parent_comment.task_id != task_id:
-                    raise HTTPException(
-                        status_code=400,
-                        detail="Родительский комментарий должен принадлежат к той же задаче что и дочерний"
-                    )
                     
             data_dict = comment_data.model_dump()
             data_dict["task_id"] = task_id
-            data_dict["author_id"] = author_id
+            data_dict["author_id"] = current_user_id
             
             new_comment = await self.uow.comments.create_comment(comment_data=data_dict)
             await self.uow.commit()
@@ -46,18 +40,15 @@ class CommentService:
             
             return await self.uow.comments.get_comments_by_task(task_id)
         
-    async def delete_comment_by_id(self, project_id: int, comment_id: int, user_id: int) -> None:
+    async def delete_comment_by_id(self, project_id: int, comment_id: int, current_user_id: int) -> None:
         async with self.uow:
             comment = await self.uow.comments.get_by_id(comment_id)
-            if not comment:
+            if not comment or comment.author_id != current_user_id:
                 raise HTTPException(status_code=404, detail="Комментарий с таким ID не найден")
             
             task = await self.uow.tasks.get_by_id(comment.task_id)
             if not task or task.project_id != project_id:
                 raise HTTPException(status_code=400, detail="Данный комментарий не принадлежит указанному проекту")
-            
-            if comment.author_id != user_id:
-                raise HTTPException(status_code=403, detail="Вы можете удалять только свои комментарии")
             
             await self.uow.comments.delete(comment)
             await self.uow.commit()

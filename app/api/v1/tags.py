@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends
 
 from app.api.dependencies.role import CheckProjectRole
 from app.api.dependencies.uow import get_uow
-from app.core.security import get_current_user
 from app.models.project_member import Role
 from app.models.tag import Tag
 from app.models.task import Task
@@ -23,7 +22,7 @@ async def create_tag(
 ) -> Tag:
     tag_service = TagService(uow)
     
-    return await tag_service.create_new_tag(tag_data)
+    return await tag_service.create_new_tag(project_id, tag_data)
 
 @router.get("/projects/{project_id}/tags", response_model=list[TagResponse])
 async def get_all_tags(
@@ -33,7 +32,7 @@ async def get_all_tags(
 ) -> list[Tag]:
     tag_service = TagService(uow)
     
-    return await tag_service.get_all_tags()
+    return await tag_service.get_all_tags(project_id)
 
 @router.put("/project/{project_id}/tasks/{task_id}/tags/{tag_id}", response_model=TaskResponse)
 async def attach_tag_to_task(
@@ -55,6 +54,6 @@ async def delete_tag(
     _: User = Depends(CheckProjectRole([Role.OWNER, Role.MANAGER]))
 ) -> None:
     tag_service = TagService(uow)
-    await tag_service.delete_tag_by_id(tag_id)
+    await tag_service.delete_tag_by_id(project_id, tag_id)
     
     return None

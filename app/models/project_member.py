@@ -1,6 +1,6 @@
 from enum import Enum
 from typing import TYPE_CHECKING
-from sqlalchemy import Enum as SQLEnum, ForeignKey, Integer
+from sqlalchemy import Enum as SQLEnum, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -16,9 +16,19 @@ class Role(str, Enum):
 class ProjectMember(Base):
     __tablename__ = "project_members"
     
-    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
-    project_id: Mapped[int] = mapped_column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True)
-    role: Mapped[Role] = mapped_column(SQLEnum(Role, name="role"), nullable=False, default=Role.DEVELOPER)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        primary_key=True
+    )
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"),
+        primary_key=True,
+        index=True
+    )
+    role: Mapped[Role] = mapped_column(
+        SQLEnum(Role, native_enum=True, name="role"),
+        default=Role.DEVELOPER
+    )
     
-    user: Mapped["User"] = relationship(back_populates="project_memberships")
-    project: Mapped["Project"] = relationship(back_populates="memberships")
+    user: Mapped["User"] = relationship("User", back_populates="project_memberships")
+    project: Mapped["Project"] = relationship("Project", back_populates="memberships")

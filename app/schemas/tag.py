@@ -6,5 +6,6 @@ class TagCreate(BaseModel):
 class TagResponse(BaseModel):
     id: int = Field(..., description="ID тега")
     name: str
+    project_id: int = Field(..., description="ID проекта, к которому привязан тег")
         
     model_config = ConfigDict(from_attributes=True)
