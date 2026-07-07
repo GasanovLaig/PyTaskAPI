@@ -24,6 +24,22 @@ class BaseRepository(Generic[ModelType]):
             options=options,
             populate_existing=populate_existing
         )
+        
+    async def is_exists_in_project(self, obj_id: int, project_id: int) -> bool:
+        if hasattr(self.model, "project_id"):
+            query = (
+                select(self.model)
+                .where(
+                    self.model == obj_id,
+                    self.model.project_id == project_id
+                )
+                .exists()
+                .select()
+            )
+            
+            return await self.session.execute(query)
+        
+        return False
     
     async def get_all(self) -> list[ModelType]:
         result = await self.session.scalars(select(self.model))

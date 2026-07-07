@@ -42,15 +42,16 @@ class CommentService:
         
     async def delete_comment_by_id(self, project_id: int, comment_id: int, current_user_id: int) -> None:
         async with self.uow:
-            comment = await self.uow.comments.get_by_id(comment_id)
-            if not comment or comment.author_id != current_user_id:
-                raise HTTPException(status_code=404, detail="Комментарий с таким ID не найден")
+            is_valid = await self.uow.comments.verify_comment_content(
+                comment_id=comment_id,
+                project_id=project_id,
+                author_id=current_user_id
+            )
             
-            task = await self.uow.tasks.get_by_id(comment.task_id)
-            if not task or task.project_id != project_id:
-                raise HTTPException(status_code=400, detail="Данный комментарий не принадлежит указанному проекту")
+            if not is_valid:
+                raise HTTPException(status_code=404, detail="Комментарий с таким ID не найден в данном проекте")
             
-            await self.uow.comments.delete(comment)
+            await self.uow.comments.delete_by_id(comment_id)
             await self.uow.commit()
             
             return None

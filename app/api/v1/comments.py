@@ -39,7 +39,7 @@ async def get_comments(
     
     return await comment_service.get_task_comments(project_id, task_id)
     
-@router.delete("/projects/{project_id}/comments/{comment_id}", status_code=204)
+@router.delete("/projects/{project_id}/tasks/{task_id}/comments/{comment_id}", status_code=204)
 async def delete_comment(
     project_id: int,
     comment_id: int,

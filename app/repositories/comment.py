@@ -2,6 +2,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.comment import Comment
+from app.models.task import Task
 from app.repositories.base import BaseRepository
 
 class CommentRepository(BaseRepository[Comment]):
@@ -22,4 +23,19 @@ class CommentRepository(BaseRepository[Comment]):
         )
         
         return result.all()
+    
+    async def verify_comment_content(self, comment_id: int, project_id: int, author_id: int) -> bool:
+        query = (
+            select(Comment)
+            .where(
+                Comment.id == comment_id,
+                Comment.author_id == author_id,
+                Comment.task_id == Task.id,
+                Task.project_id == project_id
+            )
+            .exists()
+            .select()
+        )
+        
+        return await self.session.scalar(query)
         

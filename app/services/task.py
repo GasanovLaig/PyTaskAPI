@@ -52,7 +52,7 @@ class TaskService:
             
             return task
     
-    async def get_project_tasks(self, project_id:int) -> list[Task]:
+    async def get_project_tasks(self, project_id: int) -> list[Task]:
         async with self.uow:
             return await self.uow.tasks.get_tasks_by_project(project_id)
     

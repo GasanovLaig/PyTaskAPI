@@ -1,9 +1,7 @@
-from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.tag import Tag
 from app.models.task import Task
 from app.repositories.base import BaseRepository
 
@@ -24,18 +22,6 @@ class TaskRepository(BaseRepository[Task]):
             options=[selectinload(Task.tags)],
             populate_existing=True
         )
-    
-    async def attach_tag(self, task: Task, tag: Tag) -> Task:
-        task_with_tags = await self.get_with_tags(task.id)
-        if task_with_tags is not None:
-            raise HTTPException(status_code=404, detail="Задача с таким ID не найдена")
-        
-        if tag in task_with_tags.tags:
-            raise HTTPException(status_code=409, detail="Тег с таким названием уже прикреплен к задаче")
-        
-        task_with_tags.tags.append(tag)
-        
-        return task_with_tags
     
     async def get_tasks_by_project(self, project_id: int) -> list[Task]:
         result = await self.session.scalars(

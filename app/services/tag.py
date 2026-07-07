@@ -30,7 +30,7 @@ class TagService:
     
     async def attach_tag_to_task(self, project_id: int, task_id: int, tag_id: int) -> Task:
         async with self.uow:
-            task = await self.uow.tasks.get_by_id(task_id)
+            task = await self.uow.tasks.get_with_tags(task_id)
             if task is None or task.project_id != project_id:
                 raise HTTPException(status_code=404, detail="Задача с таким ID не найдена в данном проекте")
             
@@ -38,10 +38,13 @@ class TagService:
             if tag is None or tag.project_id != project_id:
                 raise HTTPException(status_code=404, detail="Тег с таким ID не найден в данном проекте")
             
-            task_with_tag = await self.uow.tasks.attach_tag(task, tag)
+            if tag in task.tags:
+                raise HTTPException(status_code=409, detail="Тег с таким названием уже прикреплен к этой задаче")
+            
+            task.tags.append(tag)
             await self.uow.commit()
             
-            return task_with_tag
+            return task
     
     async def delete_tag_by_id(self, project_id: int, tag_id: int) -> None:
         async with self.uow:
