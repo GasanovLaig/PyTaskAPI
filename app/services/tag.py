@@ -1,4 +1,4 @@
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 
 from app.models.tag import Tag
 from app.models.task import Task
@@ -11,9 +11,15 @@ class TagService:
         
     async def create_new_tag(self, project_id: int, tag_data: TagCreate) -> Tag:
         async with self.uow:
-            is_tag_exists = await self.uow.tags.get_by_name(project_id, tag_data.name)
+            is_tag_exists = await self.uow.tags.is_tag_exists_by_name(
+                project_id,
+                tag_data.name
+            )
             if is_tag_exists:
-                raise HTTPException(status_code=409, detail="Тег с таким именем уже существует")
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Тег с таким именем уже существует"
+                )
             
             tag_dict = tag_data.model_dump()
             tag_dict["project_id"] = project_id
@@ -32,28 +38,38 @@ class TagService:
         async with self.uow:
             task = await self.uow.tasks.get_with_tags(task_id)
             if task is None or task.project_id != project_id:
-                raise HTTPException(status_code=404, detail="Задача с таким ID не найдена в данном проекте")
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Задача с таким ID не найдена в данном проекте"
+                )
             
             tag = await self.uow.tags.get_by_id(tag_id)
             if tag is None or tag.project_id != project_id:
-                raise HTTPException(status_code=404, detail="Тег с таким ID не найден в данном проекте")
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Тег с таким ID не найден в данном проекте"
+                )
             
-            if tag in task.tags:
-                raise HTTPException(status_code=409, detail="Тег с таким названием уже прикреплен к этой задаче")
+            if tag_id in {tag.id for tag in task.tags}:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Тег с таким названием уже прикреплен к этой задаче"
+                )
             
             task.tags.append(tag)
             await self.uow.commit()
             
             return task
     
-    async def delete_tag_by_id(self, project_id: int, tag_id: int) -> None:
+    async def delete_tag_by_id(self, project_id: int, tag_id: int):
         async with self.uow:
-            tag = await self.uow.tags.get_by_id(tag_id)
-            if not tag or tag.project_id != project_id:
-                raise HTTPException(status_code=404, detail="Тег с таким ID не найден в данном проекте")
+            is_tag_exists = await self.uow.tags.is_exists_in_project(tag_id, project_id)
+            if not is_tag_exists:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Тег с таким ID не найден в данном проекте"
+                )
             
-            await self.uow.tags.delete(tag)
+            await self.uow.tags.delete_by_id(tag_id)
             await self.uow.commit()
-            
-            return None
         

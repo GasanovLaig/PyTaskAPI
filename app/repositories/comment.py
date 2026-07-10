@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import exists, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.comment import Comment
@@ -24,18 +24,21 @@ class CommentRepository(BaseRepository[Comment]):
         
         return result.all()
     
-    async def verify_comment_content(self, comment_id: int, project_id: int, author_id: int) -> bool:
-        query = (
-            select(Comment)
-            .where(
-                Comment.id == comment_id,
-                Comment.author_id == author_id,
-                Comment.task_id == Task.id,
-                Task.project_id == project_id
-            )
-            .exists()
-            .select()
-        )
+    async def is_parent_comment_valid(self, parent_comment_id: int, expected_task_id: int) -> bool:
+        query = select(exists().where(
+            Comment.id == parent_comment_id,
+            Comment.task_id == expected_task_id
+        ))
         
         return await self.session.scalar(query)
+    
+    async def get_comment_metadata(self, comment_id: int) -> tuple[int, int] | None:
+        query = (
+            select(Comment.author_id, Task.project_id)
+            .join(Task, Comment.task_id == Task.id)
+            .where(Comment.id == comment_id)
+        )
+        result = await self.session.execute(query)
+        
+        return result.fetchone()
         

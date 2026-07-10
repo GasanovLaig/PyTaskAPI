@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, status
 
 from app.api.dependencies.role import CheckProjectRole
 from app.api.dependencies.uow import get_uow
@@ -39,14 +39,16 @@ async def get_comments(
     
     return await comment_service.get_task_comments(project_id, task_id)
     
-@router.delete("/projects/{project_id}/tasks/{task_id}/comments/{comment_id}", status_code=204)
+@router.delete("/projects/{project_id}/tasks/{task_id}/comments/{comment_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_comment(
     project_id: int,
     comment_id: int,
     uow: UnitOfWork = Depends(get_uow),
     current_user: User = Depends(CheckProjectRole([Role.OWNER, Role.MANAGER, Role.DEVELOPER]))
-) -> None:
+):
     comment_service = CommentService(uow)
-    await comment_service.delete_comment_by_id(project_id, comment_id, current_user.id)
-    
-    return None
+    await comment_service.delete_comment_by_id(
+        project_id,
+        comment_id,
+        current_user.id
+    )

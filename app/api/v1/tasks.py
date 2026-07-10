@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, status
 from redis.asyncio import Redis
 
 from app.api.dependencies.role import CheckProjectRole
@@ -74,15 +74,13 @@ async def update_task(
         task_data
     )
 
-@router.delete("/projects/{project_id}/tasks/{task_id}", status_code=204)
+@router.delete("/projects/{project_id}/tasks/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_task(
     project_id: int,
     task_id: int,
     uow: UnitOfWork = Depends(get_uow),
     redis: Redis = Depends(get_redis),
     _: User = Depends(CheckProjectRole([Role.OWNER, Role.MANAGER]))
-) -> None:
+):
     task_service = TaskService(uow, redis)
     await task_service.delete_task(project_id, task_id)
-    
-    return None

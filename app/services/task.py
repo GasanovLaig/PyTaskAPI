@@ -91,15 +91,13 @@ class TaskService:
             
             return updated_task
         
-    async def delete_task(self, project_id: int, task_id: int) -> None:
+    async def delete_task(self, project_id: int, task_id: int):
         async with self.uow:
-            task = await self.uow.tasks.get_by_id(task_id)
-            if not task or task.project_id != project_id:
+            is_task_exists = await self.uow.tasks.is_exists_in_project(task_id, project_id)
+            if not is_task_exists:
                 raise HTTPException(status_code=404, detail="Задача с таким ID не найдена в данном проекте")
             
-            await self.uow.tasks.delete(task)
+            await self.uow.tasks.delete_by_id(task_id)
             await self.uow.commit()
             await self.redis.delete(f"project:{project_id}:tasks_tree")
-            
-            return None
         

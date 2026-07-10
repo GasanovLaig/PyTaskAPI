@@ -1,5 +1,5 @@
 from typing import Any, Generic, Type, TypeVar
-from sqlalchemy import Sequence, delete, select, update
+from sqlalchemy import Sequence, delete, exists, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.base import ExecutableOption
 
@@ -26,20 +26,13 @@ class BaseRepository(Generic[ModelType]):
         )
         
     async def is_exists_in_project(self, obj_id: int, project_id: int) -> bool:
-        if hasattr(self.model, "project_id"):
-            query = (
-                select(self.model)
-                .where(
-                    self.model == obj_id,
-                    self.model.project_id == project_id
-                )
-                .exists()
-                .select()
-            )
-            
-            return await self.session.execute(query)
+        query = select(exists().where(
+            self.model.id == obj_id,
+            self.model.project_id == project_id
+        ))
+        result = await self.session.execute(query)
         
-        return False
+        return bool(result)
     
     async def get_all(self) -> list[ModelType]:
         result = await self.session.scalars(select(self.model))
