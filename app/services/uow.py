@@ -22,8 +22,6 @@ class UnitOfWork:
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         if exc_type is not None:
             await self.rollback()
-            
-        await self.session.close()
     
     @property
     def users(self) -> UserRepository:
@@ -62,9 +60,6 @@ class UnitOfWork:
         
     async def commit(self):
         await self.session.commit()
-        
-    async def refresh(self, obj):
-        await self.session.refresh(obj)
         
     async def rollback(self):
         await self.session.rollback()

@@ -37,13 +37,10 @@ class ProjectRepository(BaseRepository[Project]):
         return result.all()
     
     async def is_member(self, project_id: int, user_id: int) -> bool:
-        query = (
-            exists()
-            .where(
-                ProjectMember.project_id == project_id,
-                ProjectMember.user_id == user_id
-            )
-            .select()
-        )
+        result = await self.session.scalar(
+            select(exists().where(
+            ProjectMember.project_id == project_id,
+            ProjectMember.user_id == user_id
+        )))
         
-        return bool(await self.session.scalar(query))
+        return bool(result)

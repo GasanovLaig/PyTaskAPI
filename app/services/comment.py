@@ -42,9 +42,8 @@ class CommentService:
             data_dict["task_id"] = task_id
             data_dict["author_id"] = current_user_id
             
-            new_comment = await self.uow.comments.create_comment(comment_data=data_dict)
+            new_comment = await self.uow.comments.create(comment_data=data_dict)
             await self.uow.commit()
-            await self.uow.refresh(new_comment)
             
             return new_comment
     

@@ -25,10 +25,8 @@ class AuthService:
                 "full_name": user_data.full_name
             }
             
-            # TODO: оптимизировать refresh, flush, returning
             new_user = await self.uow.users.create(db_data)
             await self.uow.commit()
-            await self.uow.refresh(new_user)
             
             return new_user
     

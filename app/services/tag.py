@@ -1,4 +1,5 @@
 from fastapi import HTTPException, status
+from redis.asyncio import Redis
 
 from app.models.tag import Tag
 from app.models.task import Task
@@ -6,8 +7,9 @@ from app.schemas.tag import TagCreate
 from app.services.uow import UnitOfWork
 
 class TagService:
-    def __init__(self, uow: UnitOfWork):
+    def __init__(self, uow: UnitOfWork, redis: Redis = None):
         self.uow = uow
+        self.redis = redis
         
     async def create_new_tag(self, project_id: int, tag_data: TagCreate) -> Tag:
         async with self.uow:
@@ -23,10 +25,8 @@ class TagService:
             
             tag_dict = tag_data.model_dump()
             tag_dict["project_id"] = project_id
-            # TODO: оптимизировать refresh, flush, returning
             new_tag = await self.uow.tags.create(tag_dict)
             await self.uow.commit()
-            await self.uow.refresh(new_tag)
             
             return new_tag
     
@@ -43,8 +43,8 @@ class TagService:
                     detail="Задача с таким ID не найдена в данном проекте"
                 )
             
-            tag = await self.uow.tags.get_by_id(tag_id)
-            if tag is None or tag.project_id != project_id:
+            tag = await self.uow.tags.get_by_id_secure(tag_id, project_id)
+            if not tag:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="Тег с таким ID не найден в данном проекте"
@@ -58,6 +58,7 @@ class TagService:
             
             task.tags.append(tag)
             await self.uow.commit()
+            await self.redis.delete(f"project:{project_id}:tasks_tree")
             
             return task
     
@@ -72,4 +73,6 @@ class TagService:
             
             await self.uow.tags.delete_by_id(tag_id)
             await self.uow.commit()
+            
+            await self.redis.delete(f"project:{project_id}:tasks_tree")
         

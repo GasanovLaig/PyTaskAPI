@@ -9,6 +9,17 @@ class TaskCreate(BaseModel):
     performer_id: int | None = Field(None, description="ID исполнителя задачи")
     parent_task_id: int | None = Field(None, description="ID родительской задачи (если это подзадача)")
 
+class TaskCreateResponse(BaseModel):
+    id: int = Field(..., description="ID задачи")
+    title: str
+    description: str | None
+    status: TaskStatus
+    project_id: int
+    performer_id: int | None
+    parent_task_id: int | None
+    
+    model_config = ConfigDict(from_attributes=True)
+
 class TaskResponse(BaseModel):
     id: int = Field(..., description="ID задачи")
     title: str

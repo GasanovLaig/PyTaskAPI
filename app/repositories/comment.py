@@ -10,12 +10,6 @@ class CommentRepository(BaseRepository[Comment]):
         super().__init__(Comment, session)
         self.session = session
         
-    async def create_comment(self, comment_data: dict) -> Comment:
-        new_comment = Comment(**comment_data)
-        self.session.add(new_comment)
-        
-        return new_comment
-    
     async def get_comments_by_task(self, task_id: int) -> list[Comment]:
         result = await self.session.scalars(
             select(Comment)

@@ -11,8 +11,7 @@ class ProjectService:
             project_dict = project_data.model_dump()
             new_project = await self.uow.projects.create_project_with_user(project_dict, current_user_id)
             await self.uow.commit()
-            await self.uow.refresh(new_project)
-            
+
             return new_project
 
     async def get_my_projects(self, current_user_id: int) -> list[Project]:
@@ -27,10 +26,8 @@ class ProjectService:
             
             return updated_project
     
-    async def delete_project(self, project_id: int) -> None:
+    async def delete_project(self, project_id: int):
         async with self.uow:
             await self.uow.projects.delete_by_id(project_id)
             await self.uow.commit()
-            
-            return None
     

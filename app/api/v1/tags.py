@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Depends, status
+from redis.asyncio import Redis
 
 from app.api.dependencies.role import CheckProjectRole
 from app.api.dependencies.uow import get_uow
+from app.core.redis_client import get_redis
 from app.models.project_member import Role
 from app.models.tag import Tag
 from app.models.task import Task
@@ -40,9 +42,10 @@ async def attach_tag_to_task(
     task_id: int,
     tag_id: int,
     uow: UnitOfWork = Depends(get_uow),
+    redis: Redis = Depends(get_redis),
     _: User = Depends(CheckProjectRole([Role.OWNER, Role.MANAGER]))
 ) -> Task:
-    tag_service = TagService(uow)
+    tag_service = TagService(uow, redis)
     
     return await tag_service.attach_tag_to_task(project_id, task_id, tag_id)
 
@@ -51,7 +54,8 @@ async def delete_tag(
     project_id: int,
     tag_id: int,
     uow: UnitOfWork = Depends(get_uow),
+    redis: Redis = Depends(get_redis),
     _: User = Depends(CheckProjectRole([Role.OWNER, Role.MANAGER]))
 ):
-    tag_service = TagService(uow)
+    tag_service = TagService(uow, redis)
     await tag_service.delete_tag_by_id(project_id, tag_id)

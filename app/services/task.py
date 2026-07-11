@@ -1,5 +1,5 @@
 import json
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 from fastapi.encoders import jsonable_encoder
 from redis.asyncio import Redis
 
@@ -18,7 +18,7 @@ class TaskService:
                 is_project_member = await self.uow.projects.is_member(project_id, task_data.performer_id)
                 if not is_project_member:
                     raise HTTPException(
-                        status_code=404,
+                        status_code=status.HTTP_404_NOT_FOUND,
                         detail="Исполнитель с таким ID не найден в данном проекте"
                     )
             
@@ -26,21 +26,23 @@ class TaskService:
                 task_data.parent_task_id = None
                 
             if task_data.parent_task_id is not None:
-                parent_task: Task = await self.uow.tasks.get_by_id(task_data.parent_task_id)
-                if parent_task is None or parent_task.project_id != project_id:
+                is_parent_task: Task = await self.uow.tasks.is_exists_in_project(
+                    task_data.parent_task_id,
+                    project_id
+                )
+                if not is_parent_task:
                     raise HTTPException(
-                        status_code=404,
+                        status_code=status.HTTP_404_NOT_FOUND,
                         detail="Родительская задача с таким ID не найдена в данном проекте"
                     )
                 
             task_dict = task_data.model_dump()
             task_dict["project_id"] = project_id
-            new_task = await self.uow.tasks.create_task(task_data=task_dict)
+            new_task = await self.uow.tasks.create(task_dict)
             await self.uow.commit()
             
             cache_key = f"project:{project_id}:tasks_tree"
             await self.redis.delete(cache_key)
-            await self.uow.session.refresh(new_task)
             
             return new_task
         
@@ -48,7 +50,10 @@ class TaskService:
         async with self.uow:
             task = await self.uow.tasks.get_with_tags(task_id)
             if not task or task.project_id != project_id:
-                raise HTTPException(status_code=404, detail="Задача с таким ID не найдена в данном проекте")
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Задача с таким ID не найдена в данном проекте"
+                )
             
             return task
     
@@ -63,7 +68,7 @@ class TaskService:
             return json.loads(cached_tree)
         
         async with self.uow:
-            tree_data = await self.uow.tasks.get_project_task_tree(project_id)
+            tree_data = await self.uow.tasks.get_project_tasks_tree(project_id)
             serialized_data = jsonable_encoder(tree_data)
             
             await self.redis.set(cache_key, json.dumps(serialized_data), ex=600)
@@ -74,12 +79,18 @@ class TaskService:
         async with self.uow:
             task = await self.uow.tasks.get_with_tags(task_id)
             if not task or task.project_id != project_id:
-                raise HTTPException(status_code=404, detail="Задача с таким ID не найдена в данном проекте")
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Задача с таким ID не найдена в данном проекте"
+                )
             
             if task_data.performer_id is not None:
                 is_project_member = await self.uow.projects.is_member(project_id, task_data.performer_id)
                 if not is_project_member:
-                    raise HTTPException(status_code=404, detail="Исполнитель с таким ID не найден в данном проекте")
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail="Исполнитель с таким ID не найден в данном проекте"
+                    )
                 
             update_dict = task_data.model_dump(exclude_unset=True)
             updated_task = await self.uow.tasks.update(task, update_dict)
@@ -87,7 +98,6 @@ class TaskService:
             
             cache_key = f"project:{project_id}:tasks_tree"
             await self.redis.delete(cache_key)
-            await self.uow.session.refresh(updated_task)
             
             return updated_task
         
@@ -95,7 +105,10 @@ class TaskService:
         async with self.uow:
             is_task_exists = await self.uow.tasks.is_exists_in_project(task_id, project_id)
             if not is_task_exists:
-                raise HTTPException(status_code=404, detail="Задача с таким ID не найдена в данном проекте")
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Задача с таким ID не найдена в данном проекте"
+                )
             
             await self.uow.tasks.delete_by_id(task_id)
             await self.uow.commit()
