@@ -13,7 +13,7 @@ class Project(Base):
 
     id: Mapped[int] = mapped_column(Identity(always=True), primary_key=True)
     title: Mapped[str] = mapped_column(String(100))
-    description: Mapped[str |  None] = mapped_column(Text)
+    description: Mapped[str | None] = mapped_column(Text)
     memberships: Mapped[list["ProjectMember"]] = relationship(
         back_populates="project",
         cascade="all, delete-orphan"

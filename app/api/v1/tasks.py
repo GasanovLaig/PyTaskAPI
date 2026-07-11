@@ -8,12 +8,12 @@ from app.services.uow import UnitOfWork
 from app.models.project_member import Role
 from app.models.task import Task
 from app.models.user import User
-from app.schemas.task import TaskCreate, TaskCreateResponse, TaskResponse, TaskTreeResponse, TaskUpdate
+from app.schemas.task import TaskCreate, TaskCreateUpdateResponse, TaskResponse, TaskTreeResponse, TaskUpdate
 from app.services.task import TaskService
 
 router = APIRouter(tags=["Задачи"])
 
-@router.post("/projects/{project_id}/tasks", response_model=TaskCreateResponse)
+@router.post("/projects/{project_id}/tasks", response_model=TaskCreateUpdateResponse)
 async def create_task(
     project_id: int,
     task_data: TaskCreate,
@@ -57,7 +57,7 @@ async def get_project_tasks(
     
     return await task_service.get_project_tasks(project_id)
 
-@router.patch("/projects/{project_id}/tasks/{task_id}", response_model=TaskResponse)
+@router.patch("/projects/{project_id}/tasks/{task_id}", response_model=TaskCreateUpdateResponse)
 async def update_task(
     project_id: int,
     task_id: int,

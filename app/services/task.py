@@ -5,7 +5,7 @@ from redis.asyncio import Redis
 
 from app.services.uow import UnitOfWork
 from app.models.task import Task
-from app.schemas.task import TaskCreate, TaskCreate, TaskUpdate
+from app.schemas.task import TaskCreate, TaskUpdate
 
 class TaskService:
     def __init__(self, uow: UnitOfWork, redis: Redis = None):
