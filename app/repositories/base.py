@@ -55,20 +55,16 @@ class BaseRepository(Generic[ModelType]):
         
         return bool(result)
     
+    async def is_exists(self, obj_id: int) -> bool:
+        return bool(await self.session.execute(
+            select(exists().where(self.model.id == obj_id))
+            ))
+    
     async def get_all(self) -> list[ModelType]:
         result = await self.session.scalars(select(self.model))
         
         return result.all()
         
-    async def update(self, obj: Type[ModelType], data: dict[str, Any]) -> ModelType | None:
-        for key, value in data.items():
-            if hasattr(obj, key):
-                setattr(obj, key, value)
-                
-        self.session.add(obj)
-        
-        return obj
-    
     async def update_by_id(self, obj_id: int, data: dict[str, Any]) -> ModelType | None:
         query = (
             update(self.model)
@@ -81,8 +77,24 @@ class BaseRepository(Generic[ModelType]):
         return result.scalar_one_or_none()
     
     async def delete_by_id(self, obj_id: int):
-        await self.session.execute(
+        return await self.session.scalar(
             delete(self.model)
             .where(self.model.id == obj_id)
+            .returning(self.model.id)
         )
+        
+    async def delete_by_id_secure(self, obj_id: int, project_id: int):
+        if hasattr(self.model, "project_id"):
+            result = await self.session.scalar(
+                delete(self.model)
+                .where(
+                    self.model.id == obj_id,
+                    self.model.project_id == project_id
+                )
+                .returning(self.model.id)
+            )
+            
+            return result
+        
+        return await self.delete_by_id(obj_id)
         

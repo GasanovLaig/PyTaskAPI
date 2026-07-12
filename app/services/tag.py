@@ -64,15 +64,13 @@ class TagService:
     
     async def delete_tag_by_id(self, project_id: int, tag_id: int):
         async with self.uow:
-            is_tag_exists = await self.uow.tags.is_exists_in_project(tag_id, project_id)
-            if not is_tag_exists:
+            deleted = await self.uow.tags.delete_by_id_secure(tag_id, project_id)
+            if not deleted:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="Тег с таким ID не найден в данном проекте"
                 )
             
-            await self.uow.tags.delete_by_id(tag_id)
             await self.uow.commit()
-            
             await self.redis.delete(f"project:{project_id}:tasks_tree")
         

@@ -1,5 +1,7 @@
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.models.project_member import Role
+
 class ProjectBase(BaseModel):
     description: str | None = Field(None, description="Описание проекта")
     
@@ -14,4 +16,8 @@ class ProjectResponse(ProjectCreate):
     id: int = Field(..., gt=0, description="ID проекта")
     
     model_config = ConfigDict(from_attributes=True)
+    
+class ProjectMemberAdd(BaseModel):
+    user_id: int = Field(..., gt=0, description="ID добавляемого сотрудника")
+    role: Role = Field(Role.DEVELOPER, description="Роль сотрудника в проекте")
     

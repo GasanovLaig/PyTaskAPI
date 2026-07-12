@@ -1,4 +1,6 @@
-from sqlalchemy import exists, select
+from typing import Any
+
+from sqlalchemy import exists, insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.project import Project
@@ -15,6 +17,12 @@ class ProjectRepository(BaseRepository[Project]):
         self.session.add(new_project)
         
         return new_project
+    
+    async def add_project_member(self, member_data: dict[str, Any]):
+        await self.session.execute(
+            insert(ProjectMember)
+            .values(**member_data)
+        )
     
     async def get_user_role_in_project(self, project_id: int, user_id: int) -> Role:
         role = await self.session.scalar(

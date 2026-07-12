@@ -6,7 +6,7 @@ from app.core.security import get_current_user
 from app.models.project import Project
 from app.models.project_member import Role
 from app.models.user import User
-from app.schemas.project import ProjectCreate, ProjectResponse, ProjectUpdate
+from app.schemas.project import ProjectMemberAdd, ProjectCreate, ProjectResponse, ProjectUpdate
 from app.services.project import ProjectService
 from app.services.uow import UnitOfWork
 
@@ -21,6 +21,18 @@ async def create_project(
     project_service = ProjectService(uow)
     
     return await project_service.create_new_project(project_data, current_user.id)
+
+@router.post("/projects/{project_id}/members", status_code=status.HTTP_201_CREATED)
+async def add_project_member(
+    project_id: int,
+    member_data: ProjectMemberAdd,
+    uow: UnitOfWork = Depends(get_uow),
+    _: User = Depends(CheckProjectRole([Role.OWNER]))
+):
+    project_service = ProjectService(uow)
+    await project_service.add_project_member(project_id, member_data)
+    
+    return {"detail": "Пользователь успешно добавлен в проект"}
 
 @router.get("/projects", response_model=list[ProjectResponse])
 async def get_my_projects(

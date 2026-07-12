@@ -22,14 +22,11 @@ class CheckProjectRole:
                 current_user.id
             )
             
-            if user_role == Role.OWNER:
+            if user_role == Role.OWNER or (user_role is not None and user_role in self.allowed_roles):
                 return current_user
 
-            if user_role is None or user_role not in self.allowed_roles:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Проект не найден или у вас нет к нему доступа"
-                )
-                
-            return current_user
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Проект не найден или у вас нет к нему доступа"
+            )
     

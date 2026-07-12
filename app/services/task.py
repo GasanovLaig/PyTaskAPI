@@ -36,9 +36,9 @@ class TaskService:
                         detail="Родительская задача с таким ID не найдена в данном проекте"
                     )
                 
-            task_dict = task_data.model_dump()
-            task_dict["project_id"] = project_id
-            new_task = await self.uow.tasks.create(task_dict)
+            db_data = task_data.model_dump()
+            db_data["project_id"] = project_id
+            new_task = await self.uow.tasks.create(db_data)
             await self.uow.commit()
             
             cache_key = f"project:{project_id}:tasks_tree"
@@ -77,8 +77,8 @@ class TaskService:
         
     async def update_task_details(self, project_id: int, task_id: int, task_data: TaskUpdate) -> Task:
         async with self.uow:
-            task = await self.uow.tasks.get_with_tags(task_id)
-            if not task or task.project_id != project_id:
+            is_task_exists = await self.uow.tasks.is_exists_in_project(task_id, project_id)
+            if not is_task_exists:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="Задача с таким ID не найдена в данном проекте"
@@ -92,8 +92,8 @@ class TaskService:
                         detail="Исполнитель с таким ID не найден в данном проекте"
                     )
                 
-            update_dict = task_data.model_dump(exclude_unset=True)
-            updated_task = await self.uow.tasks.update(task, update_dict)
+            db_data = task_data.model_dump(exclude_unset=True)
+            updated_task = await self.uow.tasks.update_by_id(task_id, db_data)
             await self.uow.commit()
             
             cache_key = f"project:{project_id}:tasks_tree"
@@ -103,14 +103,13 @@ class TaskService:
         
     async def delete_task(self, project_id: int, task_id: int):
         async with self.uow:
-            is_task_exists = await self.uow.tasks.is_exists_in_project(task_id, project_id)
-            if not is_task_exists:
+            deleted = await self.uow.tasks.delete_by_id_secure(task_id, project_id)
+            if not deleted:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="Задача с таким ID не найдена в данном проекте"
                 )
             
-            await self.uow.tasks.delete_by_id(task_id)
             await self.uow.commit()
             await self.redis.delete(f"project:{project_id}:tasks_tree")
         
