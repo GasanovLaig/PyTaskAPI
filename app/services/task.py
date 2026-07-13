@@ -77,13 +77,6 @@ class TaskService:
         
     async def update_task_details(self, project_id: int, task_id: int, task_data: TaskUpdate) -> Task:
         async with self.uow:
-            is_task_exists = await self.uow.tasks.is_exists_in_project(task_id, project_id)
-            if not is_task_exists:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Задача с таким ID не найдена в данном проекте"
-                )
-            
             if task_data.performer_id is not None:
                 is_project_member = await self.uow.projects.is_member(project_id, task_data.performer_id)
                 if not is_project_member:
@@ -91,11 +84,16 @@ class TaskService:
                         status_code=status.HTTP_404_NOT_FOUND,
                         detail="Исполнитель с таким ID не найден в данном проекте"
                     )
-                
-            db_data = task_data.model_dump(exclude_unset=True)
-            updated_task = await self.uow.tasks.update_by_id(task_id, db_data)
-            await self.uow.commit()
             
+            db_data = task_data.model_dump(exclude_unset=True)
+            updated_task = await self.uow.tasks.update_by_id_secure(task_id, project_id, db_data)
+            if not updated_task:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Задача с таким ID не найдена в данном проекте"
+                )
+                
+            await self.uow.commit()
             cache_key = f"project:{project_id}:tasks_tree"
             await self.redis.delete(cache_key)
             

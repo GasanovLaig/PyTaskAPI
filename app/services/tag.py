@@ -1,5 +1,6 @@
 from fastapi import HTTPException, status
 from redis.asyncio import Redis
+from sqlalchemy.exc import IntegrityError
 
 from app.models.tag import Tag
 from app.models.task import Task
@@ -13,22 +14,20 @@ class TagService:
         
     async def create_new_tag(self, project_id: int, tag_data: TagCreate) -> Tag:
         async with self.uow:
-            is_tag_exists = await self.uow.tags.is_tag_exists_by_name(
-                project_id,
-                tag_data.name
-            )
-            if is_tag_exists:
+            db_data = tag_data.model_dump()
+            db_data["project_id"] = project_id
+            try:
+                new_tag = await self.uow.tags.create(db_data)
+                await self.uow.commit()
+                
+                return new_tag
+            
+            except IntegrityError:
+                await self.uow.rollback()
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
-                    detail="Тег с таким именем уже существует"
+                    detail="Тег с таким названием уже существует в данном проекте"
                 )
-            
-            tag_dict = tag_data.model_dump()
-            tag_dict["project_id"] = project_id
-            new_tag = await self.uow.tags.create(tag_dict)
-            await self.uow.commit()
-            
-            return new_tag
     
     async def get_all_tags(self, project_id: int) -> list[Tag]:
         async with self.uow:

@@ -9,6 +9,9 @@ class UserRepository(BaseRepository[User]):
         super().__init__(model=User, session=session)
         
     async def get_by_email(self, email: str) -> User | None:
-        result = await self.session.scalars(select(User).where(User.email == email))
+        user = await self.session.scalar(
+            select(User)
+            .where(User.email == email)
+        )
         
-        return result.one_or_none()
+        return user

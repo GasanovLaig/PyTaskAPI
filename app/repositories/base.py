@@ -66,15 +66,23 @@ class BaseRepository(Generic[ModelType]):
         return result.all()
         
     async def update_by_id(self, obj_id: int, data: dict[str, Any]) -> ModelType | None:
-        query = (
+        return await self.session.scalar(
             update(self.model)
             .where(self.model.id == obj_id)
             .values(**data)
             .returning(self.model)
         )
-        result = await self.session.execute(query)
         
-        return result.scalar_one_or_none()
+    async def update_by_id_secure(self, obj_id: int, project_id: int, data: dict[str, Any]) -> ModelType | None:
+        return await self.session.scalar(
+            update(self.model)
+            .where(
+                self.model.id == obj_id,
+                self.project_id == project_id
+            )
+            .values(**data)
+            .returning(self.model)
+        )
     
     async def delete_by_id(self, obj_id: int):
         return await self.session.scalar(

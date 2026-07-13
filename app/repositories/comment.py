@@ -8,7 +8,6 @@ from app.repositories.base import BaseRepository
 class CommentRepository(BaseRepository[Comment]):
     def __init__(self, session: AsyncSession):
         super().__init__(Comment, session)
-        self.session = session
         
     async def get_comments_by_task(self, task_id: int) -> list[Comment]:
         result = await self.session.scalars(

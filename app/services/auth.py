@@ -1,4 +1,5 @@
 from fastapi import HTTPException, status
+from sqlalchemy.exc import IntegrityError
 
 from app.core.security import create_access_token, get_password_hash, verify_password
 from app.models.user import User
@@ -11,13 +12,6 @@ class AuthService:
         
     async def register_new_user(self, user_data: UserCreate) -> User:
         async with self.uow:
-            existing_user = await self.uow.users.get_by_email(user_data.email)
-            if existing_user:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Пользователь с таким email уже зарегистрирован"
-                )
-            
             hashed_pwd = get_password_hash(user_data.password)
             db_data = {
                 "email": user_data.email,
@@ -25,10 +19,18 @@ class AuthService:
                 "full_name": user_data.full_name
             }
             
-            new_user = await self.uow.users.create(db_data)
-            await self.uow.commit()
+            try:
+                new_user = await self.uow.users.create(db_data)
+                await self.uow.commit()
+                
+                return new_user
             
-            return new_user
+            except IntegrityError:
+                await self.uow.rollback()
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Пользователь с таким email уже зарегистрирован"
+                )
     
     async def authenticate_user(self, email: str, plain_password: str) -> str:
         async with self.uow:

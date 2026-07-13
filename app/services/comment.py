@@ -38,11 +38,11 @@ class CommentService:
                         detail="Родительский комментарий с таким ID не найден"
                     )
                     
-            data_dict = comment_data.model_dump()
-            data_dict["task_id"] = task_id
-            data_dict["author_id"] = current_user_id
+            db_data = comment_data.model_dump()
+            db_data["task_id"] = task_id
+            db_data["author_id"] = current_user_id
             
-            new_comment = await self.uow.comments.create(comment_data=data_dict)
+            new_comment = await self.uow.comments.create(db_data)
             await self.uow.commit()
             
             return new_comment
