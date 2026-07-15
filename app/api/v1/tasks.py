@@ -42,7 +42,7 @@ async def get_task_by_id(
     task_id: int,
     uow: UnitOfWork = Depends(get_uow),
     _: User = Depends(CheckProjectRole([Role.OWNER, Role.MANAGER, Role.DEVELOPER]))
-) -> Task:
+) -> Task | None:
     task_service = TaskService(uow)
     
     return await task_service.get_task_by_id(project_id, task_id)

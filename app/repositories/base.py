@@ -34,18 +34,6 @@ class BaseRepository(Generic[ModelType]):
             populate_existing=populate_existing
         )
         
-    async def get_by_id_secure(self, obj_id: int, project_id: int) -> ModelType | None:
-        if hasattr(self.model, "project_id"):
-            return await self.session.scalar(
-                select(self.model)
-                .where(
-                    self.model.id == obj_id,
-                    self.model.project_id == project_id
-                )
-            )
-            
-        return await self.get_by_id(obj_id)
-        
     async def is_exists_in_project(self, obj_id: int, project_id: int) -> bool:
         query = select(exists().where(
             self.model.id == obj_id,
@@ -54,11 +42,6 @@ class BaseRepository(Generic[ModelType]):
         result = await self.session.execute(query)
         
         return bool(result)
-    
-    async def is_exists(self, obj_id: int) -> bool:
-        return bool(await self.session.execute(
-            select(exists().where(self.model.id == obj_id))
-            ))
     
     async def get_all(self) -> list[ModelType]:
         result = await self.session.scalars(select(self.model))

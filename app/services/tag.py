@@ -33,33 +33,31 @@ class TagService:
         async with self.uow:
             return await self.uow.tags.get_all_tags_by_project(project_id)
     
-    async def attach_tag_to_task(self, project_id: int, task_id: int, tag_id: int) -> Task:
+    async def attach_tag_to_task(self, project_id: int, task_id: int, tag_id: int) -> None:
         async with self.uow:
-            task = await self.uow.tasks.get_with_tags(task_id)
-            if task is None or task.project_id != project_id:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Задача с таким ID не найдена в данном проекте"
+            try:
+                is_attached = await self.uow.tags.attach_tag_secure(
+                    project_id,
+                    task_id,
+                    tag_id
                 )
-            
-            tag = await self.uow.tags.get_by_id_secure(tag_id, project_id)
-            if not tag:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Тег с таким ID не найден в данном проекте"
-                )
-            
-            if tag_id in {tag.id for tag in task.tags}:
+                
+                if not is_attached:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail="Задача или тег с таким ID не найдены в данном проекте"
+                    )
+                
+                await self.uow.commit()
+                
+            except IntegrityError:
+                await self.uow.rollback()
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
-                    detail="Тег с таким названием уже прикреплен к этой задаче"
+                    detail="Этот тег уже прикреплен к данной задаче"
                 )
-            
-            task.tags.append(tag)
-            await self.uow.commit()
+                
             await self.redis.delete(f"project:{project_id}:tasks_tree")
-            
-            return task
     
     async def delete_tag_by_id(self, project_id: int, tag_id: int):
         async with self.uow:
