@@ -49,14 +49,7 @@ class CommentService:
     
     async def get_task_comments(self, project_id: int, task_id: int) -> list[Comment]:
         async with self.uow:
-            is_task_exists = await self.uow.tasks.is_exists_in_project(task_id, project_id)
-            if not is_task_exists:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Задача с таким ID не найдена в данном проекте"
-                )
-            
-            return await self.uow.comments.get_comments_by_task(task_id)
+            return await self.uow.comments.get_comments_by_task(project_id, task_id)
         
     async def delete_comment_by_id(self, project_id: int, comment_id: int, current_user_id: int):
         async with self.uow:

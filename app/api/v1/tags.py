@@ -47,6 +47,18 @@ async def attach_tag_to_task(
 ) -> None:
     tag_service = TagService(uow, redis)
     await tag_service.attach_tag_to_task(project_id, task_id, tag_id)
+    
+@router.delete("/projects/{project_id}/tasks/{task_id}/{tag_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def detach_tag_from_task(
+    project_id: int,
+    task_id: int,
+    tag_id: int,
+    uow: UnitOfWork = Depends(get_uow),
+    redis: Redis = Depends(get_redis),
+    _: User = Depends(CheckProjectRole([Role.OWNER, Role.MANAGER]))
+) -> None:
+    tag_service = TagService(uow, redis)
+    await tag_service.detach_tag_from_task(project_id, task_id, tag_id)
 
 @router.delete("/projects/{project_id}/tags/{tag_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_tag(

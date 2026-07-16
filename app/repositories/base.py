@@ -21,19 +21,6 @@ class BaseRepository(Generic[ModelType]):
         
         return new_obj
                     
-    async def get_by_id(
-        self,
-        obj_id: int,
-        options: Sequence[ExecutableOption] | None = None,
-        populate_existing: bool = False
-    ) -> ModelType | None:
-        return await self.session.get(
-            self.model,
-            obj_id,
-            options=options,
-            populate_existing=populate_existing
-        )
-        
     async def is_exists_in_project(self, obj_id: int, project_id: int) -> bool:
         query = select(exists().where(
             self.model.id == obj_id,
@@ -67,25 +54,24 @@ class BaseRepository(Generic[ModelType]):
             .returning(self.model)
         )
     
-    async def delete_by_id(self, obj_id: int):
-        return await self.session.scalar(
+    async def delete_by_id(self, obj_id: int) -> bool:
+        result = await self.session.scalar(
             delete(self.model)
             .where(self.model.id == obj_id)
             .returning(self.model.id)
         )
         
-    async def delete_by_id_secure(self, obj_id: int, project_id: int):
-        if hasattr(self.model, "project_id"):
-            result = await self.session.scalar(
-                delete(self.model)
-                .where(
-                    self.model.id == obj_id,
-                    self.model.project_id == project_id
-                )
-                .returning(self.model.id)
-            )
-            
-            return result
+        return result.rowcount > 0
         
-        return await self.delete_by_id(obj_id)
+    async def delete_by_id_secure(self, obj_id: int, project_id: int) -> bool:
+        result = await self.session.scalar(
+            delete(self.model)
+            .where(
+                self.model.id == obj_id,
+                self.model.project_id == project_id
+            )
+            .returning(self.model.id)
+        )
+        
+        return result.rowcount > 0
         

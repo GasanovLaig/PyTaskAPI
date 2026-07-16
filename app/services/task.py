@@ -48,8 +48,8 @@ class TaskService:
         
     async def get_task_by_id(self, project_id: int, task_id: int) -> Task:
         async with self.uow:
-            task = await self.uow.tasks.get_with_tags(task_id)
-            if not task or task.project_id != project_id:
+            task = await self.uow.tasks.get_task_with_tags_secure(project_id, task_id)
+            if not task:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="Задача с таким ID не найдена в данном проекте"
@@ -101,13 +101,14 @@ class TaskService:
         
     async def delete_task(self, project_id: int, task_id: int):
         async with self.uow:
-            deleted = await self.uow.tasks.delete_by_id_secure(task_id, project_id)
-            if not deleted:
+            is_deleted = await self.uow.tasks.delete_by_id_secure(task_id, project_id)
+            if not is_deleted:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="Задача с таким ID не найдена в данном проекте"
                 )
             
             await self.uow.commit()
-            await self.redis.delete(f"project:{project_id}:tasks_tree")
+        
+        await self.redis.delete(f"project:{project_id}:tasks_tree")
         

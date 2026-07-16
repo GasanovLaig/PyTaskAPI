@@ -60,8 +60,8 @@ class ProjectService:
     
     async def delete_project(self, project_id: int):
         async with self.uow:
-            deleted = await self.uow.projects.delete_by_id(project_id)
-            if not deleted:
+            is_deleted = await self.uow.projects.delete_by_id(project_id)
+            if not is_deleted:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="Проект с таким ID не найден"

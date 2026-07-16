@@ -36,7 +36,7 @@ class TagService:
     async def attach_tag_to_task(self, project_id: int, task_id: int, tag_id: int) -> None:
         async with self.uow:
             try:
-                is_attached = await self.uow.tags.attach_tag_secure(
+                is_attached = await self.uow.tags.attach_tag_to_task_secure(
                     project_id,
                     task_id,
                     tag_id
@@ -58,16 +58,30 @@ class TagService:
                 )
                 
             await self.redis.delete(f"project:{project_id}:tasks_tree")
-    
-    async def delete_tag_by_id(self, project_id: int, tag_id: int):
+            
+    async def detach_tag_from_task(self, project_id: int, task_id: int, tag_id: int) -> None:
         async with self.uow:
-            deleted = await self.uow.tags.delete_by_id_secure(tag_id, project_id)
-            if not deleted:
+            is_deleted = await self.uow.tags.delete_tag_from_task(project_id, task_id, tag_id)
+            if not is_deleted:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Задача или Тег с таким ID не найдены в данном проекте"
+                )
+                
+            await self.uow.commit()
+            
+        await self.redis.delete(f"project:{project_id}:tasks_tree")
+    
+    async def delete_tag_by_id(self, project_id: int, tag_id: int) -> None:
+        async with self.uow:
+            is_deleted = await self.uow.tags.delete_by_id_secure(tag_id, project_id)
+            if not is_deleted:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="Тег с таким ID не найден в данном проекте"
                 )
             
             await self.uow.commit()
-            await self.redis.delete(f"project:{project_id}:tasks_tree")
+            
+        await self.redis.delete(f"project:{project_id}:tasks_tree")
         

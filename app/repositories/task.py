@@ -9,11 +9,14 @@ class TaskRepository(BaseRepository[Task]):
     def __init__(self, session: AsyncSession):
         super().__init__(model=Task, session=session)
         
-    async def get_with_tags(self, task_id: int) -> Task | None:
-        return await self.get_by_id(
-            obj_id=task_id,
-            options=[selectinload(Task.tags)],
-            populate_existing=True
+    async def get_task_with_tags_secure(self, project_id: int, task_id: int) -> Task | None:
+        return await self.session.scalar(
+            select(Task)
+            .where(
+                Task.id == task_id,
+                Task.project_id == project_id
+            )
+            .options(selectinload(Task.tags))
         )
     
     async def get_tasks_by_project(self, project_id: int) -> list[Task]:

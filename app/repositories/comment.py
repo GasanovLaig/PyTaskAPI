@@ -1,3 +1,5 @@
+from typing import Any
+
 from sqlalchemy import exists, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -9,10 +11,14 @@ class CommentRepository(BaseRepository[Comment]):
     def __init__(self, session: AsyncSession):
         super().__init__(Comment, session)
         
-    async def get_comments_by_task(self, task_id: int) -> list[Comment]:
+    async def get_comments_by_task(self, project_id: int, task_id: int) -> list[Comment]:
         result = await self.session.scalars(
             select(Comment)
-            .where(Comment.task_id == task_id)
+            .join(Task, Comment.task_id == Task.id)
+            .where(
+                Comment.task_id == task_id,
+                Task.project_id == project_id
+            )
         )
         
         return result.all()
