@@ -1,9 +1,8 @@
-from typing import Any
-
-from sqlalchemy import exists, select
+from sqlalchemy import delete, exists, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.comment import Comment
+from app.models.project_member import ProjectMember, Role
 from app.models.task import Task
 from app.repositories.base import BaseRepository
 
@@ -24,20 +23,40 @@ class CommentRepository(BaseRepository[Comment]):
         return result.all()
     
     async def is_parent_comment_valid(self, parent_comment_id: int, expected_task_id: int) -> bool:
-        query = select(exists().where(
+        return await self.session.scalar(select(exists().where(
             Comment.id == parent_comment_id,
             Comment.task_id == expected_task_id
-        ))
-        
-        return await self.session.scalar(query)
+        )))
     
-    async def get_comment_metadata(self, comment_id: int) -> tuple[int, int] | None:
-        query = (
-            select(Comment.author_id, Task.project_id)
-            .join(Task, Comment.task_id == Task.id)
-            .where(Comment.id == comment_id)
+    async def delete_comment_by_id_secure(self, project_id: int, comment_id: int, user_id: int) -> None:
+        is_comment_in_project = select(
+            exists()
+            .where(
+                Task.id == Comment.task_id,
+                Task.project_id == project_id
+            )
         )
-        result = await self.session.execute(query)
         
-        return result.fetchone()
+        is_user_moderator = select(
+            exists()
+            .where(
+                ProjectMember.project_id == project_id,
+                ProjectMember.user_id == user_id,
+                ProjectMember.role.in_([Role.OWNER, Role.MANAGER])
+            )
+        )
+        
+        result = await self.session.execute(
+            delete(Comment)
+            .where(
+                Comment.id == comment_id,
+                is_comment_in_project,
+                or_(
+                    Comment.author_id == user_id,
+                    is_user_moderator
+                )
+            )
+        )
+        
+        return result.rowcount > 0
         

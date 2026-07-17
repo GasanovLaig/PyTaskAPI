@@ -6,9 +6,7 @@ from app.api.dependencies.uow import get_uow
 from app.core.redis_client import get_redis
 from app.models.project_member import Role
 from app.models.tag import Tag
-from app.models.task import Task
 from app.models.user import User
-from app.schemas.task import TaskResponse
 from app.services.tag import TagService
 from app.schemas.tag import TagCreate, TagResponse
 from app.services.uow import UnitOfWork
@@ -48,7 +46,7 @@ async def attach_tag_to_task(
     tag_service = TagService(uow, redis)
     await tag_service.attach_tag_to_task(project_id, task_id, tag_id)
     
-@router.delete("/projects/{project_id}/tasks/{task_id}/{tag_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/projects/{project_id}/tasks/{task_id}/tags/{tag_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def detach_tag_from_task(
     project_id: int,
     task_id: int,
@@ -61,7 +59,7 @@ async def detach_tag_from_task(
     await tag_service.detach_tag_from_task(project_id, task_id, tag_id)
 
 @router.delete("/projects/{project_id}/tags/{tag_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_tag(
+async def delete_tag_from_project(
     project_id: int,
     tag_id: int,
     uow: UnitOfWork = Depends(get_uow),

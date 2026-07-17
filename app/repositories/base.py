@@ -1,7 +1,6 @@
 from typing import Any, Generic, Type, TypeVar
-from sqlalchemy import Sequence, delete, exists, insert, select, update
+from sqlalchemy import delete, exists, insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.sql.base import ExecutableOption
 
 from app.core.database import Base
 
@@ -58,7 +57,6 @@ class BaseRepository(Generic[ModelType]):
         result = await self.session.scalar(
             delete(self.model)
             .where(self.model.id == obj_id)
-            .returning(self.model.id)
         )
         
         return result.rowcount > 0
@@ -70,7 +68,6 @@ class BaseRepository(Generic[ModelType]):
                 self.model.id == obj_id,
                 self.model.project_id == project_id
             )
-            .returning(self.model.id)
         )
         
         return result.rowcount > 0

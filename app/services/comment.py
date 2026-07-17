@@ -1,7 +1,6 @@
 from fastapi import HTTPException, status
 
 from app.models.comment import Comment
-from app.models.project_member import Role
 from app.schemas.comment import CommentCreate
 from app.services.uow import UnitOfWork
 
@@ -53,32 +52,16 @@ class CommentService:
         
     async def delete_comment_by_id(self, project_id: int, comment_id: int, current_user_id: int):
         async with self.uow:
-            metadata = await self.uow.comments.get_comment_metadata(comment_id)
-            if not metadata:
+            is_deleted = await self.uow.comments.delete_comment_by_id_secure(
+                project_id,
+                comment_id,
+                current_user_id
+            )
+            if not is_deleted:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Комментарий с таким ID не найден"
-                )
-            
-            author_id, real_project_id = metadata
-            if real_project_id != project_id:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Комментарий с таким ID не найден в данном проекте"
                 )
             
-            is_author = author_id == current_user_id
-            user_role = await self.uow.projects.get_user_role_in_project(
-                project_id,
-                current_user_id
-            )
-            is_moderator = user_role in [Role.OWNER, Role.MANAGER]
-            if not (is_author or is_moderator):
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="У вас нет прав на удаление этого комментария"
-                )
-            
-            await self.uow.comments.delete_by_id(comment_id)
             await self.uow.commit()
             

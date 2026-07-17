@@ -3,7 +3,6 @@ from redis.asyncio import Redis
 from sqlalchemy.exc import IntegrityError
 
 from app.models.tag import Tag
-from app.models.task import Task
 from app.schemas.tag import TagCreate
 from app.services.uow import UnitOfWork
 
