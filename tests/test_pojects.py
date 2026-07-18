@@ -5,9 +5,9 @@ async def test_create_project_full_flow_success(client: AsyncClient):
     
     # Шаг 1: Регистрируем тестового пользователя
     user_data = {
-        "email": "tester_user1@mail.ru",
-        "password": "super_secret_password_example!1@2#3$4%5^6&7*8(9)0",
-        "full_name": "User Tester"
+        "email": "project_owner@test.ru",
+        "password": "pwd_example!1@2#3",
+        "full_name": "User Full Name"
     }
     register_response = await client.post("/auth/users", json=user_data)
     assert register_response.status_code == 200

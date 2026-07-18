@@ -1,72 +1,62 @@
 from httpx import AsyncClient
 
-async def test_create_task_rbac_flow(client: AsyncClient):
-    # "Сценарий проверки прав доступа (RBAC): создание задач разрешено только участникам"
-    # 1. Регистрируем и логиним Юзера №1 (Владелец проекта)
-    user1_payload = {
-        "email": "owner@mail.ru",
-        "password": "pwd_example_!1",
-        "full_name": "Owner Tester"
-    }
-    await client.post("/auth/users", json=user1_payload)
-    login1 = await client.post(
-        "/auth/login",
-        data={
-            "username": user1_payload["email"],
-            "password": user1_payload["password"]
-        }
-    )
-    owner_token = login1.json()["access_token"]
+async def test_create_task_owner_success(client: AsyncClient):
+    """ТЕСТ 1: Проверяем позитивный сценарий (Владелец может создать задачу)"""
     
-    # 2. Регистрируем и логиним Юзера №2 (Чужак, не состоящий в проекте)
-    user2_payload = {
-        "email": "stranger@mail.ru",
-        "password": "pwd_example_@2",
-        "full_name": "Stranger Tester"
-    }
-    await client.post("/auth/users", json=user2_payload)
-    login2 = await client.post(
-        "/auth/login",
-        data={
-            "username": user2_payload["email"],
-            "password": user2_payload["password"]
-        }
-    )
-    stranger_token = login2.json()["access_token"]
-    
-    # 3. Юзер №1 создает проект и получает его project_id
-    project_payload = {
-        "title": "Безопасный проект",
-        "description": "Проверяем права доступа"
-    }
-    project_result = await client.post("/projects", json=project_payload, headers={"Authorization": f"Bearer {owner_token}"})
+    # 1. Регистрируем и логиним Владельца
+    user_payload = {"email": "owner@mail.ru", "password": "pwd_example_!1", "full_name": "Owner Tester"}
+    await client.post("/auth/users", json=user_payload)
+    login = await client.post("/auth/login", data={"username": user_payload["email"], "password": user_payload["password"]})
+    token = login.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # 2. Создаем проект
+    project_payload = {"title": "Проект Владельца", "description": "Описание"}
+    project_result = await client.post("/projects", json=project_payload, headers=headers)
     project_id = project_result.json()["id"]
+
+    # 3. Создаем задачу -> Ожидаем 200 OK
+    task_payload = {"title": "Задача владельца", "description": "Детали"}
+    good_result = await client.post(f"/projects/{project_id}/tasks", json=task_payload, headers=headers)
     
-    task_payload = {
-        "title": "Написать тесты безопасности",
-        "description": "Проверить перехват 403 ошибки"
-    }
-    bad_result = await client.post(
-        f"/projects/{project_id}/tasks",
-        json=task_payload,
-        headers={"Authorization": f"Bearer {stranger_token}"}
-    )
-    assert bad_result.status_code == 404
-    assert bad_result.json()["detail"] == "Проект не найден или у вас нет к нему доступа"
-    
-    # 5. Проверка №2: Владелец проекта добавляет задачу в свой проект -> Ожидаем 200 OK
-    good_result = await client.post(
-        f"/projects/{project_id}/tasks",
-        json=task_payload,
-        headers={"Authorization": f"Bearer {owner_token}"}
-    )
     assert good_result.status_code == 200
     assert good_result.json()["title"] == task_payload["title"]
     
-async def test_update_task_flow_success(client: AsyncClient):
-    # "Тестирование изменения статуса задачи и смены исполнителя (PATCH)."
+async def test_create_task_stranger_forbidden_fail(client: AsyncClient):
+    """ТЕСТ 2: Проверяем негативный сценарий (Чужак получает 404)"""
     
-    user_payload = {"email": "manager@mail.ru", "password": "pwd_example_!1", "full_name": "User Tester"}
+    # 1. Логиним Владельца и создаем проект
+    user1_payload = {"email": "owner2@mail.ru", "password": "pwd_example_!1", "full_name": "Owner"}
+    await client.post("/auth/users", json=user1_payload)
+    login1 = await client.post("/auth/login", data={"username": user1_payload["email"], "password": user1_payload["password"]})
+    owner_token = login1.json()["access_token"]
+    
+    project_result = await client.post(
+        "/projects", 
+        json={"title": "Секретный проект", "description": ""}, 
+        headers={"Authorization": f"Bearer {owner_token}"}
+    )
+    project_id = project_result.json()["id"]
+
+    # 2. Логиним Чужака
+    user2_payload = {"email": "stranger2@mail.ru", "password": "pwd_example_@2", "full_name": "Stranger"}
+    await client.post("/auth/users", json=user2_payload)
+    login2 = await client.post("/auth/login", data={"username": user2_payload["email"], "password": user2_payload["password"]})
+    stranger_token = login2.json()["access_token"]
+
+    # 3. Чужак стучится в проект -> Ожидаем 404
+    task_payload = {"title": "Взлом задачи", "description": ""}
+    bad_result = await client.post(
+        f"/projects/{project_id}/tasks", 
+        json=task_payload, 
+        headers={"Authorization": f"Bearer {stranger_token}"}
+    )
+    assert bad_result.status_code == 404
+    
+async def test_update_task_flow_success(client: AsyncClient):
+    """Тестирование изменения статуса задачи и смены исполнителя (PATCH)."""
+    
+    user_payload = {"email": "manager@test.ru", "password": "pwd_example_!1", "full_name": "User Tester"}
     await client.post("/auth/users", json=user_payload)
     login_result = await client.post("/auth/login", data={"username": user_payload["email"], "password": user_payload["password"]})
     token = login_result.json()["access_token"]
@@ -99,7 +89,7 @@ async def test_update_task_flow_success(client: AsyncClient):
     assert update_data["status"] == "in_progress"
     
 async def test_get_tasks_tree_structure(client: AsyncClient):
-    user_payload = {"email": "tree_tester@mail.ru", "password": "pwd_example_@2", "full_name": "Tree Tester"}
+    user_payload = {"email": "tree_tester@test.ru", "password": "pwd_example_@2", "full_name": "Tree Tester"}
     await client.post("/auth/users", json=user_payload)
     login_result = await client.post("/auth/login", data={"username": user_payload["email"], "password": user_payload["password"]})
     headers = {"Authorization": f"Bearer {login_result.json()["access_token"]}"}

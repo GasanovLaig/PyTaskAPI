@@ -1,5 +1,4 @@
 from typing import Any
-
 from sqlalchemy import exists, insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,6 +14,7 @@ class ProjectRepository(BaseRepository[Project]):
         new_project = Project(**project_data)
         new_project.memberships.append(ProjectMember(user_id=current_user_id, role=Role.OWNER))
         self.session.add(new_project)
+        await self.session.flush()
         
         return new_project
     

@@ -47,7 +47,7 @@ class BaseRepository(Generic[ModelType]):
             update(self.model)
             .where(
                 self.model.id == obj_id,
-                self.project_id == project_id
+                self.model.project_id == project_id
             )
             .values(**data)
             .returning(self.model)

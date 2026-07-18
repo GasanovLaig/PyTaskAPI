@@ -10,8 +10,8 @@ class AuthService:
         
     async def register_new_user(self, user_data: UserCreate) -> User:
         async with self.uow:
-            hashed_password = get_password_hash(user_data.password)
-            db_data = user_data.model_dump()
+            hashed_password = get_password_hash(user_data.password.get_secret_value())
+            db_data = user_data.model_dump(exclude="password")
             db_data["hashed_password"] = hashed_password
             
             new_user = await self.uow.users.create(db_data)

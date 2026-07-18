@@ -22,9 +22,33 @@ class UnitOfWork:
         return self
     
     async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """
+        Централизованный перехват ВСЕХ ошибок базы данных,
+        которые случились в блоке 'async with self.uow:' (включая репозитории).
+        """
         if exc_type is not None:
-            await self.rollback()
-    
+            await self.session.rollback()
+            
+            if issubclass(exc_type, IntegrityError):
+                postgres_code = None
+                orig_error = getattr(exc_val, "orig", None)
+                if orig_error and hasattr(orig_error, "sqlstate"):
+                    postgres_code = orig_error.sqlstate
+                elif orig_error and hasattr(orig_error, "pgcode"):
+                    postgres_code = orig_error.pgcode
+                    
+                if postgres_code == "23503":
+                    raise ResourceNotFoundError("Связанный ресурс не найден")
+                if postgres_code == "23505":
+                    raise ResourceAlreadyExistsError("Запись с таким уникальными данными уже существует")
+                if postgres_code == "40P01":
+                    raise DatabaseDeadlockError("Операция была прервана из-за взаимной блокировки. Повторите запрос.")
+                
+            return False
+
+    async def commit(self):
+        self.session.commit
+        
     @property
     def users(self) -> UserRepository:
         if self._users is None:
@@ -60,22 +84,3 @@ class UnitOfWork:
             
         return self._comments
         
-    async def commit(self):
-        try:
-            await self.session.commit()
-        except IntegrityError as error:
-            await self.session.rollback()
-
-            postgres_code = getattr(error.orig, "sqlstate", None) or getattr(error.orig, "pgcode", None)
-            if postgres_code == "23503":
-                raise ResourceNotFoundError("Связанный ресурс не найден")
-            if postgres_code == "23505":
-                raise ResourceAlreadyExistsError("Запись с таким уникальными данными уже существует")
-            if postgres_code == "40P01":
-                raise DatabaseDeadlockError("Операция была прервана из-за взаимной блокировки. Повторите запрос.")
-            
-            raise error
-            
-        
-    async def rollback(self):
-        await self.session.rollback()
