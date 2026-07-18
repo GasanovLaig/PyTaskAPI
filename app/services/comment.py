@@ -1,5 +1,4 @@
-from fastapi import HTTPException, status
-
+from app.core.exceptions import ResourceNotFoundError
 from app.models.comment import Comment
 from app.schemas.comment import CommentCreate
 from app.services.uow import UnitOfWork
@@ -18,10 +17,7 @@ class CommentService:
         async with self.uow:
             is_task_exists = await self.uow.tasks.is_exists_in_project(task_id, project_id)
             if not is_task_exists:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Задача с таким ID не найдена в данном проекте"
-                )
+                raise ResourceNotFoundError("Задача с таким ID не найдена в данном проекте")
 
             if comment_data.parent_comment_id == 0:
                 comment_data.parent_comment_id = None
@@ -32,10 +28,7 @@ class CommentService:
                     task_id
                 )
                 if not is_parent_comment:
-                    raise HTTPException(
-                        status_code=status.HTTP_404_NOT_FOUND,
-                        detail="Родительский комментарий с таким ID не найден"
-                    )
+                    raise ResourceNotFoundError("Родительский комментарий с таким ID не найден")
                     
             db_data = comment_data.model_dump()
             db_data["task_id"] = task_id
@@ -58,10 +51,7 @@ class CommentService:
                 current_user_id
             )
             if not is_deleted:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Комментарий с таким ID не найден в данном проекте"
-                )
+                raise ResourceNotFoundError("Комментарий с таким ID не найден в данном проекте")
             
             await self.uow.commit()
             

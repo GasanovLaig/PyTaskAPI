@@ -1,6 +1,4 @@
-from fastapi import HTTPException, status
-from sqlalchemy.exc import IntegrityError
-
+from app.core.exceptions import InvalidCredentialsError
 from app.core.security import create_access_token, get_password_hash, verify_password
 from app.models.user import User
 from app.schemas.user import UserCreate
@@ -16,33 +14,16 @@ class AuthService:
             db_data = user_data.model_dump()
             db_data["hashed_password"] = hashed_password
             
-            try:
-                new_user = await self.uow.users.create(db_data)
-                await self.uow.commit()
-                
-                return new_user
+            new_user = await self.uow.users.create(db_data)
+            await self.uow.commit()
             
-            except IntegrityError:
-                await self.uow.rollback()
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Пользователь с таким email уже зарегистрирован"
-                )
-    
+            return new_user
+            
     async def authenticate_user(self, email: str, plain_password: str) -> str:
         async with self.uow:
             user = await self.uow.users.get_by_email(email)
-            if not user:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Неверный email или пароль"
-                )
-            
-            if not verify_password(plain_password, user.hashed_password):
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Неверный email или пароль"
-                )
+            if not user or not verify_password(plain_password, user.hashed_password):
+                raise InvalidCredentialsError("Неверный email или пароль")
             
             token_data = {"sub": user.email}
             access_token = create_access_token(token_data)

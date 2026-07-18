@@ -1,6 +1,7 @@
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends
 
 from app.api.dependencies.uow import get_uow
+from app.core.exceptions import ResourceNotFoundError
 from app.core.security import get_current_user
 from app.models.project_member import Role
 from app.models.user import User
@@ -25,8 +26,5 @@ class CheckProjectRole:
             if user_role == Role.OWNER or (user_role is not None and user_role in self.allowed_roles):
                 return current_user
 
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Проект не найден или у вас нет к нему доступа"
-            )
+            raise ResourceNotFoundError("Проект не найден или у вас нет к нему доступа")
     

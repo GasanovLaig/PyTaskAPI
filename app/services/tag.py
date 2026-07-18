@@ -1,7 +1,6 @@
-from fastapi import HTTPException, status
 from redis.asyncio import Redis
-from sqlalchemy.exc import IntegrityError
 
+from app.core.exceptions import ResourceNotFoundError
 from app.models.tag import Tag
 from app.schemas.tag import TagCreate
 from app.services.uow import UnitOfWork
@@ -15,18 +14,10 @@ class TagService:
         async with self.uow:
             db_data = tag_data.model_dump()
             db_data["project_id"] = project_id
-            try:
-                new_tag = await self.uow.tags.create(db_data)
-                await self.uow.commit()
-                
-                return new_tag
+            new_tag = await self.uow.tags.create(db_data)
+            await self.uow.commit()
             
-            except IntegrityError:
-                await self.uow.rollback()
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail="Тег с таким названием уже существует в данном проекте"
-                )
+            return new_tag
     
     async def get_all_tags(self, project_id: int) -> list[Tag]:
         async with self.uow:
@@ -34,38 +25,23 @@ class TagService:
     
     async def attach_tag_to_task(self, project_id: int, task_id: int, tag_id: int) -> None:
         async with self.uow:
-            try:
-                is_attached = await self.uow.tags.attach_tag_to_task_secure(
-                    project_id,
-                    task_id,
-                    tag_id
-                )
+            is_attached = await self.uow.tags.attach_tag_to_task_secure(
+                project_id,
+                task_id,
+                tag_id
+            )
+            if not is_attached:
+                raise ResourceNotFoundError("Задача или тег с таким ID не найдены в данном проекте")
+            
+            await self.uow.commit()
                 
-                if not is_attached:
-                    raise HTTPException(
-                        status_code=status.HTTP_404_NOT_FOUND,
-                        detail="Задача или тег с таким ID не найдены в данном проекте"
-                    )
-                
-                await self.uow.commit()
-                
-            except IntegrityError:
-                await self.uow.rollback()
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail="Этот тег уже прикреплен к данной задаче"
-                )
-                
-            await self.redis.delete(f"project:{project_id}:tasks_tree")
+        await self.redis.delete(f"project:{project_id}:tasks_tree")
             
     async def detach_tag_from_task(self, project_id: int, task_id: int, tag_id: int) -> None:
         async with self.uow:
             is_deleted = await self.uow.tags.delete_tag_from_task(project_id, task_id, tag_id)
             if not is_deleted:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Задача или Тег с таким ID не найдены в данном проекте"
-                )
+                raise ResourceNotFoundError("Задача или тег с таким ID не найдены в данном проекте")
                 
             await self.uow.commit()
             
@@ -75,11 +51,8 @@ class TagService:
         async with self.uow:
             is_deleted = await self.uow.tags.delete_by_id_secure(tag_id, project_id)
             if not is_deleted:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Тег с таким ID не найден в данном проекте"
-                )
-            
+                raise ResourceNotFoundError("Тег с таким ID не найден в данном проекте")
+
             await self.uow.commit()
             
         await self.redis.delete(f"project:{project_id}:tasks_tree")

@@ -1,5 +1,7 @@
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.exceptions import DatabaseDeadlockError, ResourceAlreadyExistsError, ResourceNotFoundError
 from app.repositories.comment import CommentRepository
 from app.repositories.project import ProjectRepository
 from app.repositories.tag import TagRepository
@@ -59,7 +61,21 @@ class UnitOfWork:
         return self._comments
         
     async def commit(self):
-        await self.session.commit()
+        try:
+            await self.session.commit()
+        except IntegrityError as error:
+            await self.session.rollback()
+
+            postgres_code = getattr(error.orig, "sqlstate", None) or getattr(error.orig, "pgcode", None)
+            if postgres_code == "23503":
+                raise ResourceNotFoundError("Связанный ресурс не найден")
+            if postgres_code == "23505":
+                raise ResourceAlreadyExistsError("Запись с таким уникальными данными уже существует")
+            if postgres_code == "40P01":
+                raise DatabaseDeadlockError("Операция была прервана из-за взаимной блокировки. Повторите запрос.")
+            
+            raise error
+            
         
     async def rollback(self):
         await self.session.rollback()

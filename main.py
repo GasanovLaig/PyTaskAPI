@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 
+from app.api.exception_handlers import register_exception_handlers
 from app.api.v1.auth import router as auth_router
 from app.api.v1.projects import router as projects_router
 from app.api.v1.tasks import router as tasks_router
@@ -13,3 +14,5 @@ app.include_router(projects_router)
 app.include_router(tasks_router)
 app.include_router(tags_router)
 app.include_router(comments_router)
+
+register_exception_handlers(app)

@@ -1,6 +1,4 @@
-from fastapi import HTTPException, status
-from sqlalchemy.exc import IntegrityError
-
+from app.core.exceptions import ResourceNotFoundError
 from app.models.project import Project
 from app.schemas.project import ProjectMemberAdd, ProjectCreate, ProjectUpdate
 from app.services.uow import UnitOfWork
@@ -21,26 +19,9 @@ class ProjectService:
         async with self.uow:
             db_data = member_data.model_dump()
             db_data["project_id"] = project_id
-            try:
-                await self.uow.projects.add_project_member(db_data)
-                await self.uow.commit()
+            await self.uow.projects.add_project_member(db_data)
+            await self.uow.commit()
                 
-            except IntegrityError as error:
-                postgres_code = getattr(error.orig, "pgcode", None) or getattr(error.orig, "sqlstate", None)
-                if postgres_code == "23505":
-                    raise HTTPException(
-                        status.HTTP_400_BAD_REQUEST,
-                        detail="Пользователь с таким ID уже состоит в проекте"
-                    )
-                elif postgres_code == "23503":
-                    raise HTTPException(
-                        status_code=status.HTTP_404_NOT_FOUND,
-                        detail="Пользователь с таким ID не найден"
-                    )
-                    
-                raise error
-                    
-
     async def get_my_projects(self, current_user_id: int) -> list[Project]:
         async with self.uow:
             return await self.uow.projects.get_my_projects(current_user_id)
@@ -50,10 +31,8 @@ class ProjectService:
             db_data = project_data.model_dump(exclude_unset=True)
             updated_project = await self.uow.projects.update_by_id(project_id, db_data)
             if not updated_project:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Проект с таким ID не найден"
-                )
+                raise ResourceNotFoundError("Проект с таким ID не найден")
+            
             await self.uow.commit()
             
             return updated_project
@@ -62,10 +41,7 @@ class ProjectService:
         async with self.uow:
             is_deleted = await self.uow.projects.delete_by_id(project_id)
             if not is_deleted:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Проект с таким ID не найден"
-                )
+                raise ResourceNotFoundError("Проект с таким ID не найден")
             
             await self.uow.commit()
     
