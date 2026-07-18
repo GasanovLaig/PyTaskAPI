@@ -1,7 +1,10 @@
-from pydantic import BaseModel, ConfigDict, Field
+from typing import Annotated
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+
+TagNameStr = Annotated[str, StringConstraints(min_length=1, max_length=50, strip_whitespace=True)]
 
 class TagBase(BaseModel):
-    name: str = Field(..., min_length=1, max_length=50, strip_whitespace=True, description="Название тега")
+    name: TagNameStr = Field(..., description="Название тега")
     
 class TagCreate(TagBase):
     pass
