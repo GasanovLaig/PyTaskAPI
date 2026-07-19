@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Any
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from app.models.project_member import Role
@@ -23,4 +23,13 @@ class ProjectResponse(ProjectCreate):
 class ProjectMemberAdd(BaseModel):
     user_id: int = Field(..., gt=0, description="ID добавляемого сотрудника")
     role: Role = Field(Role.DEVELOPER, description="Роль сотрудника в проекте")
+    
+class ReportTaskResponse(BaseModel):
+    task_id: str = Field(..., description="ID фоновой задачи Celery")
+    status: str = Field("Pending", description="Текущий статус обработки задачи")
+    
+class ReportStatusResponse(BaseModel):
+    task_id: str = Field(..., description="ID задачи")
+    status: str = Field(..., description="Статус выполнения (PENDING, STARTED, SUCCESS, FAILURE)")
+    result: Any | None = Field(..., description="Результат выполнения задачи (сгенерированный отчет), если она готова")
     

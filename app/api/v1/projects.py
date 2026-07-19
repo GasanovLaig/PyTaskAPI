@@ -1,3 +1,4 @@
+from celery.result import AsyncResult
 from fastapi import APIRouter, Depends, status
 
 from app.api.dependencies.role import CheckProjectRole
@@ -6,9 +7,10 @@ from app.core.security import get_current_user
 from app.models.project import Project
 from app.models.project_member import Role
 from app.models.user import User
-from app.schemas.project import ProjectMemberAdd, ProjectCreate, ProjectResponse, ProjectUpdate
+from app.schemas.project import ProjectMemberAdd, ProjectCreate, ProjectResponse, ProjectUpdate, ReportStatusResponse, ReportTaskResponse
 from app.services.project import ProjectService
 from app.services.uow import UnitOfWork
+from app.worker.tasks import generate_project_report
 
 router = APIRouter(tags=["Проекты"])
 
@@ -62,3 +64,39 @@ async def delete_project(
 ):
     project_service = ProjectService(uow)
     await project_service.delete_project(project_id)
+    
+@router.post(
+    "/projects/{project_id}/reports",
+    status_code=status.HTTP_202_ACCEPTED,
+    response_model=ReportTaskResponse,
+    tags=["Отчеты"]
+)
+async def request_project_report(
+    project_id: int,
+    _: User = Depends(CheckProjectRole([Role.OWNER, Role.MANAGER]))
+):
+    async_task = generate_project_report.delay(project_id)
+    
+    return ReportTaskResponse(
+        task_id=async_task.id,
+        status=async_task.status
+    )
+    
+@router.get(
+    "/projects/{project_id}/reports/status/{task_id}",
+    response_model=ReportStatusResponse,
+    tags=["Отчеты"]
+)
+async def get_report_status(
+    project_id: int,
+    task_id: str,
+    _: User = Depends(CheckProjectRole([Role.OWNER, Role.MANAGER, Role.DEVELOPER]))
+):
+    task_result = AsyncResult(task_id)
+    result_data = task_result.result if task_result.status == "SUCCESS" else None
+    
+    return ReportStatusResponse(
+        task_id=task_id,
+        status=task_result.status,
+        result=result_data
+    )
