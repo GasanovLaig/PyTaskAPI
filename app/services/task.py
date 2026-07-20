@@ -6,6 +6,7 @@ from app.core.exceptions import ResourceNotFoundError
 from app.services.uow import UnitOfWork
 from app.models.task import Task
 from app.schemas.task import TaskCreate, TaskUpdate
+from app.worker.tasks import send_assignee_email
 
 class TaskService:
     def __init__(self, uow: UnitOfWork, redis: Redis = None):
@@ -37,6 +38,17 @@ class TaskService:
             
             cache_key = f"project:{project_id}:tasks_tree"
             await self.redis.delete(cache_key)
+            
+            if new_task.performer_id is not None:
+                performer_email, project_title = await self.uow.tasks.get_metadata_for_celery(
+                    project_id,
+                    new_task.performer_id
+                )
+                send_assignee_email.delay(
+                    performer_email=performer_email,
+                    task_title=new_task.title,
+                    project_title=project_title
+                )
             
             return new_task
         
@@ -81,6 +93,17 @@ class TaskService:
             await self.uow.commit()
             cache_key = f"project:{project_id}:tasks_tree"
             await self.redis.delete(cache_key)
+            
+            if updated_task.performer_id is not None:
+                performer_email, project_title = await self.uow.tasks.get_metadata_for_celery(
+                    project_id,
+                    updated_task.performer_id
+                )
+                send_assignee_email.delay(
+                    performer_email=performer_email,
+                    task_title=updated_task.title,
+                    project_title=project_title
+                )
             
             return updated_task
         

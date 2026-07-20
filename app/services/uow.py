@@ -47,7 +47,7 @@ class UnitOfWork:
             return False
 
     async def commit(self):
-        self.session.commit
+        await self.session.commit()
         
     @property
     def users(self) -> UserRepository:

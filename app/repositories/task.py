@@ -2,7 +2,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.models.project import Project
 from app.models.task import Task
+from app.models.user import User
 from app.repositories.base import BaseRepository
 
 class TaskRepository(BaseRepository[Task]):
@@ -50,3 +52,14 @@ class TaskRepository(BaseRepository[Task]):
         all_tasks = result.all()
         
         return [task for task in all_tasks if task.parent_task_id is None]
+    
+    async def get_metadata_for_celery(self, project_id: int, performer_id: int) -> tuple[str, str]:
+        result = await self.session.execute(
+            select(User.email, Project.title)
+            .where(
+                User.id == performer_id,
+                Project.id == project_id
+            )
+        )
+        
+        return result.fetchone()
