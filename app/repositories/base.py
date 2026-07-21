@@ -54,7 +54,7 @@ class BaseRepository(Generic[ModelType]):
         )
     
     async def delete_by_id(self, obj_id: int) -> bool:
-        result = await self.session.scalar(
+        result = await self.session.execute(
             delete(self.model)
             .where(self.model.id == obj_id)
         )
@@ -62,7 +62,7 @@ class BaseRepository(Generic[ModelType]):
         return result.rowcount > 0
         
     async def delete_by_id_secure(self, obj_id: int, project_id: int) -> bool:
-        result = await self.session.scalar(
+        result = await self.session.execute(
             delete(self.model)
             .where(
                 self.model.id == obj_id,

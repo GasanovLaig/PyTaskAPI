@@ -64,14 +64,15 @@ async def update_task(
     task_data: TaskUpdate,
     uow: UnitOfWork = Depends(get_uow),
     redis: Redis = Depends(get_redis),
-    _: User = Depends(CheckProjectRole([Role.OWNER, Role.MANAGER]))
+    current_user: User = Depends(CheckProjectRole([Role.OWNER, Role.MANAGER]))
 ) -> Task:
     task_service = TaskService(uow, redis)
     
     return await task_service.update_task_details(
         project_id,
         task_id,
-        task_data
+        task_data,
+        current_user.id
     )
 
 @router.delete("/projects/{project_id}/tasks/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -80,7 +81,8 @@ async def delete_task(
     task_id: int,
     uow: UnitOfWork = Depends(get_uow),
     redis: Redis = Depends(get_redis),
-    _: User = Depends(CheckProjectRole([Role.OWNER, Role.MANAGER]))
+    current_user: User = Depends(CheckProjectRole([Role.OWNER, Role.MANAGER]))
 ):
     task_service = TaskService(uow, redis)
-    await task_service.delete_task(project_id, task_id)
+    await task_service.delete_task(project_id, task_id, current_user.id)
+    

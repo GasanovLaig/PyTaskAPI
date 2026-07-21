@@ -2,6 +2,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import DatabaseDeadlockError, ResourceAlreadyExistsError, ResourceNotFoundError
+from app.repositories.activity_log import ActivityLogRepository
 from app.repositories.comment import CommentRepository
 from app.repositories.project import ProjectRepository
 from app.repositories.tag import TagRepository
@@ -17,6 +18,7 @@ class UnitOfWork:
         self._tasks = None
         self._tags = None
         self._comments = None
+        self._activity_logs = None
         
     async def __aenter__(self):
         return self
@@ -83,4 +85,11 @@ class UnitOfWork:
             self._comments = CommentRepository(self.session)
             
         return self._comments
+    
+    @property
+    def activity_logs(self) -> ActivityLogRepository:
+        if self._activity_logs == None:
+            self._activity_logs = ActivityLogRepository(self.session)
+            
+        return self._activity_logs
         
