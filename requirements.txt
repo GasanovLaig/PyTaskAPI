@@ -18,6 +18,7 @@ colorama==0.4.6
 detect-installer==0.1.0
 dnspython==2.8.0
 email-validator==2.3.0
+Faker==40.35.0
 fastapi==0.138.0
 fastapi-cli==0.0.27
 fastapi-cloud-cli==0.20.0
