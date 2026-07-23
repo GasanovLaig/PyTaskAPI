@@ -1,7 +1,8 @@
 from enum import Enum
 from typing import TYPE_CHECKING
-from sqlalchemy import Enum as SQLEnum, ForeignKey, Identity, String, Text
+from sqlalchemy import Computed, Enum as SQLEnum, ForeignKey, Identity, Index, String, Text, func, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.dialects.postgresql import TSVECTOR
 
 from app.core.database import Base
 if TYPE_CHECKING:
@@ -52,4 +53,17 @@ class Task(Base):
         "Comment",
         back_populates="task",
         cascade="all, delete-orphan"
+    )
+    
+    search_vector: Mapped[str] = mapped_column(
+        TSVECTOR,
+        Computed(
+            "to_tsvector('russian', title) || to_tsvector('russian', coalesce(description, ''))",
+            persisted=True
+        ),
+        deferred=True
+    )
+    
+    __table_args__ = (
+        Index("idx_task_fts", "search_vector", postgresql_using="gin"),
     )

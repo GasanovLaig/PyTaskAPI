@@ -65,10 +65,6 @@ class TaskRepository(BaseRepository[Task]):
         return result.fetchone()
     
     async def get_task_log_metadata_secure(self, project_id: int, task_id: int) -> tuple[str, str, int | None] | None:
-        """
-        Вытаскивает из базы строго три поля для сверки истории аудита и защиты от IDOR.
-        Возвращает кортеж (title, status, performer_id) или None, если задача не найдена.
-        """
         result = await self.session.execute(
             select(Task.title, Task.status, Task.performer_id)
             .where(
@@ -78,4 +74,18 @@ class TaskRepository(BaseRepository[Task]):
         )
         
         return result.fetchone()
+    
+    async def search_tasks_in_project(self, project_id: int, search_query: str) -> list[Task] | None:
+        """Быстрый лингвистический поиск по задачам проекта с использованием готового TSVECTOR."""
+        
+        result = await self.session.scalars(
+            select(Task)
+            .where(
+                Task.project_id == project_id,
+                Task.search_vector.match(search_query, postgresql_regconfig="russian")
+            )
+            .options(selectinload(Task.tags))
+        )
+        
+        return result.all()
     

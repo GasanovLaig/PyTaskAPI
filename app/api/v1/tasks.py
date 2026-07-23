@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from redis.asyncio import Redis
 
 from app.api.dependencies.role import CheckProjectRole
@@ -35,6 +35,17 @@ async def get_project_tasks_tree(
     task_service = TaskService(uow, redis)
     
     return await task_service.get_project_tasks_tree(project_id)
+
+@router.get("/projects/{project_id}/tasks/search", response_model=list[TaskResponse])
+async def search_tasks(
+    project_id: int,
+    query: str = Query(..., min_length=1, description="Поисковый запрос (поддерживает склонения и падежи)"),
+    uow: UnitOfWork = Depends(get_uow),
+    _: User = Depends(CheckProjectRole([Role.OWNER, Role.MANAGER, Role.DEVELOPER]))
+) -> list[Task] | None:
+    task_service = TaskService(uow)
+    
+    return await task_service.search_project_tasks(project_id, query)
 
 @router.get("/projects/{project_id}/tasks/{task_id}", response_model=TaskResponse)
 async def get_task_by_id(

@@ -94,6 +94,14 @@ class TaskService:
             
             return tree_data
         
+    async def search_project_tasks(self, project_id: int, query: str) -> list[Task] | None:
+        clean_query = query.strip()
+        if not clean_query:
+            return []
+        
+        async with self.uow:
+            return await self.uow.tasks.search_tasks_in_project(project_id, clean_query)
+        
     async def update_task_details(self, project_id: int, task_id: int, task_data: TaskUpdate, current_user_id: int) -> Task:
         async with self.uow:
             if task_data.performer_id is not None:
