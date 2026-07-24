@@ -11,6 +11,12 @@ class Settings(BaseSettings):
     AUTH_ALGORITHM: str = "HS256"
     AUTH_EXPIRATION: int = 30
     
+    REDIS_URL: str
+    
+    MAIL_SMTP_HOST: str
+    MAIL_SMTP_PORT: int
+    MAIL_SENDER_EMAIL: str
+    
     @property
     def DATABASE_URL_ASYNC(self) -> str:
         return f"postgresql+asyncpg://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"

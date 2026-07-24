@@ -2,12 +2,10 @@ from celery import Celery
 
 from app.core.config import settings
 
-REDIS_URL = "redis://localhost:6379/0"
-
 celery_app = Celery(
     "pytaskapi_worker",
-    broker=REDIS_URL,
-    backend=REDIS_URL,
+    broker=settings.REDIS_URL,
+    backend=settings.REDIS_URL,
     include=["app.worker.tasks"]
 )
 

@@ -4,10 +4,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
 from app.worker.celery_app import celery_app
-
-SMTP_HOST = "localhost"
-SMTP_PORT = 1025
-SENDER_EMAIL = "noreply@://company.com"
+from app.core.config import settings
 
 @celery_app.task(name="tasks.send_assignee_email")
 def send_assignee_email(performer_email: str, task_title: str, project_title: str):
@@ -15,7 +12,7 @@ def send_assignee_email(performer_email: str, task_title: str, project_title: st
     
     try:
         msg = MIMEMultipart()
-        msg["From"] = SENDER_EMAIL
+        msg["From"] = settings.MAIL_SENDER_EMAIL
         msg["To"] = performer_email
         msg["Subject"] = f"Новая задача в проекте: {project_title}"
         
@@ -32,8 +29,8 @@ def send_assignee_email(performer_email: str, task_title: str, project_title: st
         
         msg.attach(MIMEText(body, "plain", "utf-8"))
         
-        with smtplib.SMTP(SMTP_HOST , SMTP_PORT) as server:
-            server.sendmail(SENDER_EMAIL, performer_email, msg.as_string())
+        with smtplib.SMTP(settings.MAIL_SMTP_HOST, settings.MAIL_SMTP_PORT) as server:
+            server.sendmail(settings.MAIL_SENDER_EMAIL, performer_email, msg.as_string())
             
         print(f"[Celery] Письмо по задаче '{task_title}' успешно доставлено на Mailhog!")
         
