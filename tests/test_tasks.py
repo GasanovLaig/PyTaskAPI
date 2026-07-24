@@ -1,4 +1,30 @@
+import pytest
 from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.project_member import ProjectMember, Role
+from tests.factories import ProjectFactory, UserFactory, TaskFactory
+
+@pytest.mark.asyncio
+async def test_get_task_by_id_success(client: AsyncClient, db_session: AsyncSession):
+    """Тест успешного чтения задачи участником проекта (Чистый Happy Path)."""
+    user = await UserFactory.create()
+    project = await ProjectFactory.create()
+    task = await TaskFactory.create(project=project, performer=user)
+    
+    db_session.add(ProjectMember(user_id=user.id, project_id=project.id, role=Role.DEVELOPER))
+    await db_session.flush()
+    
+    from app.core.security import create_access_token
+    token = create_access_token({"sub": user.email})
+    response = await client.get(
+        f"/projects/{project.id}/tasks/{task.id}",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+    
+    assert response.status_code == 200
+    assert response.json()["title"] == task.title
+    
 
 async def test_create_task_owner_success(client: AsyncClient):
     """ТЕСТ 1: Проверяем позитивный сценарий (Владелец может создать задачу)"""

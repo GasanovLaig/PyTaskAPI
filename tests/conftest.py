@@ -6,6 +6,7 @@ from sqlalchemy.pool import NullPool
 
 from main import app
 from app.core.database import Base, get_db
+from tests.factories import ProjectFactory, UserFactory, TaskFactory
 
 TEST_DATABASE_URL = "postgresql+asyncpg://postgres:NOPASSWOR@localhost:5432/pytaskapi_test"
 
@@ -47,7 +48,15 @@ async def db_session(db_engine: AsyncEngine) -> AsyncGenerator[AsyncSession, Non
                 join_transaction_mode="create_savepoint"
             )
             async with async_session_factory() as session:
+                UserFactory._meta.sqlalchemy_session = session
+                ProjectFactory._meta.sqlalchemy_session = session
+                TaskFactory._meta.sqlalchemy_session = session
+                
                 yield session
+                UserFactory._meta.sqlalchemy_session = None
+                ProjectFactory._meta.sqlalchemy_session = None
+                TaskFactory._meta.sqlalchemy_session = None
+                await session.rollback()
         
 @pytest.fixture(scope="function")
 async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
