@@ -24,7 +24,6 @@ async def test_get_task_by_id_success(client: AsyncClient, db_session: AsyncSess
     
     assert response.status_code == 200
     assert response.json()["title"] == task.title
-    
 
 async def test_create_task_owner_success(client: AsyncClient):
     """ТЕСТ 1: Проверяем позитивный сценарий (Владелец может создать задачу)"""

@@ -1,26 +1,45 @@
-from typing import AsyncGenerator
 import pytest
+from typing import AsyncGenerator
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.pool import NullPool
 
 from main import app
 from app.core.database import Base, get_db
+from app.core.config import Settings, settings
+from app.worker.celery_app import celery_app
 from tests.factories import ProjectFactory, UserFactory, TaskFactory
 
-TEST_DATABASE_URL = "postgresql+asyncpg://postgres:NOPASSWOR@localhost:5432/pytaskapi_test"
+MAIN_DB_NAME_TO_BAN = settings.DB_NAME.lower()
+# Переопределение глобальной переменной REDIS_URL настроек pydantic-settings объекта settings для celery_app
+settings_dict = Settings(_env_file=".env.tests", _env_prefix="TEST_").model_dump()
+for key, value in settings_dict.items():
+    setattr(settings, key, value)
+celery_app.conf.broker_url = settings.REDIS_URL
+celery_app.conf.result_backend = settings.REDIS_URL
+
+TEST_DATABASE_URL = settings.DATABASE_URL_ASYNC
 
 @pytest.fixture(scope="session")
 async def db_engine() -> AsyncGenerator[AsyncEngine, None]:
     """Создает фабрику подключений один раз на всю сессию тестов."""
+    TEST_DB_NAME = settings.DB_NAME.lower()
+    if ("test" not in TEST_DB_NAME
+        or TEST_DB_NAME in [MAIN_DB_NAME_TO_BAN, "pytaskapi_dev_db", "pytaskapi_db", "pytaskapi", "postgres"]):
+        raise RuntimeError(
+            f"ОПАСНОСТЬ: Попытка запустить тесты на основной БД '{settings.DB_NAME}'."
+        )
+        
     engine = create_async_engine(
         TEST_DATABASE_URL,
         poolclass=NullPool,
         echo=False
     )
-    yield engine
     
-    await engine.dispose()
+    try:
+        yield engine
+    finally:
+        await engine.dispose()
 
 @pytest.fixture(scope="session", autouse=True)
 async def setup_database(db_engine: AsyncEngine):
@@ -68,7 +87,7 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
     
     async with AsyncClient(
         transport=ASGITransport(app=app),
-        base_url="http://test"
+        base_url="http://127.0.0.1:8000"
     ) as async_client:
         yield async_client
         
