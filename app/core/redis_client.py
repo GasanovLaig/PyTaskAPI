@@ -1,6 +1,13 @@
+from typing import AsyncGenerator
 import redis.asyncio as aioredis
 
-redis_client = aioredis.from_url("redis://localhost:6379/0", decode_responses=True)
+from app.core.config import settings
 
-async def get_redis():
-    yield redis_client
+_redis_client: aioredis.Redis | None = None
+
+async def get_redis() -> AsyncGenerator[aioredis.Redis, None]:
+    global _redis_client
+    if _redis_client is None:
+        _redis_client = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
+
+    yield _redis_client
