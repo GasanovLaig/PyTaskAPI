@@ -8,7 +8,6 @@ from app.core.security import get_password_hash
 
 PRE_HASHED_PASSWORD = get_password_hash("password123")
 
-# 1. Асинхронный адаптер для связи Factory Boy с сессией SQLAlchemy 2.0
 class AsyncSQLAlchemyModelFactory(SQLAlchemyModelFactory):
     class Meta:
         abstract = True
@@ -22,7 +21,6 @@ class AsyncSQLAlchemyModelFactory(SQLAlchemyModelFactory):
         
         return obj
     
-# 2. Фабрика Пользователей
 class UserFactory(AsyncSQLAlchemyModelFactory):
     class Meta:
         model = User
@@ -31,7 +29,6 @@ class UserFactory(AsyncSQLAlchemyModelFactory):
     full_name = factory.Faker("name", locale="ru_RU")
     hashed_password = PRE_HASHED_PASSWORD
 
-# 3. Фабрика Проектов
 class ProjectFactory(AsyncSQLAlchemyModelFactory):
     class Meta:
         model = Project
@@ -39,7 +36,6 @@ class ProjectFactory(AsyncSQLAlchemyModelFactory):
     title = factory.Sequence(lambda n: f"Проект Автоматизации №{n}")
     description = factory.Faker("catch_phrase", locale="ru_RU")
 
-# 4. Фабрика Задач
 class TaskFactory(AsyncSQLAlchemyModelFactory):
     class Meta:
         model = Task
@@ -47,6 +43,6 @@ class TaskFactory(AsyncSQLAlchemyModelFactory):
     title = factory.Sequence(lambda n: f"Разработать фичу №{n}")
     description = factory.Faker("sentence", locale="ru_RU")
     status = TaskStatus.TODO
-    
-    project = factory.SubFactory(ProjectFactory)
-    performer = factory.SubFactory(UserFactory)
+    project_id = None
+    performer_id = None
+    parent_task_id = None

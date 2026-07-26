@@ -64,6 +64,7 @@ async def db_session(db_engine: AsyncEngine) -> AsyncGenerator[AsyncSession, Non
             async_session_factory = async_sessionmaker(
                 bind=connection,
                 expire_on_commit=False,
+                autoflush=False,
                 join_transaction_mode="create_savepoint"
             )
             async with async_session_factory() as session:

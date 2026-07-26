@@ -1,4 +1,4 @@
-from sqlalchemy import delete, exists, insert, select
+from sqlalchemy import delete, exists, insert, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import task_tags_table
@@ -21,6 +21,8 @@ class TagRepository(BaseRepository[Tag]):
     async def attach_tag_to_task_secure(self, project_id: int, task_id: int, tag_id: int) -> bool:
         valid_resources_query = (
             select(Task.id, Tag.id)
+            .select_from(Task)
+            .join(Tag, true())
             .where(
                 Task.id == task_id,
                 Task.project_id == project_id,

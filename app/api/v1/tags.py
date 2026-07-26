@@ -34,7 +34,7 @@ async def get_all_tags(
     
     return await tag_service.get_all_tags(project_id)
 
-@router.put("/project/{project_id}/tasks/{task_id}/tags/{tag_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.put("/projects/{project_id}/tasks/{task_id}/tags/{tag_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def attach_tag_to_task(
     project_id: int,
     task_id: int,
