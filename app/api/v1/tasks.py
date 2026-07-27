@@ -19,11 +19,11 @@ async def create_task(
     task_data: TaskCreate,
     uow: UnitOfWork = Depends(get_uow),
     redis: Redis = Depends(get_redis),
-    _: User = Depends(CheckProjectRole([Role.OWNER, Role.MANAGER]))
+    current_user: User = Depends(CheckProjectRole([Role.OWNER, Role.MANAGER]))
 ) -> Task:
     task_service = TaskService(uow, redis)
     
-    return await task_service.create_task(project_id, task_data)
+    return await task_service.create_task(project_id, task_data, current_user.id)
 
 @router.get("/projects/{project_id}/tasks/tree", response_model=list[TaskTreeResponse])
 async def get_project_tasks_tree(

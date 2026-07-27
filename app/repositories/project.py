@@ -53,8 +53,3 @@ class ProjectRepository(BaseRepository[Project]):
         
         return bool(result)
     
-    async def get_project_title(self, project_id: int):
-        return await self.session.scalar(
-            select(Project.title)
-            .where(Project.id == project_id)
-        )

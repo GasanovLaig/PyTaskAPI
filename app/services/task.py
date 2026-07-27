@@ -6,14 +6,14 @@ from app.core.exceptions import ResourceNotFoundError
 from app.services.uow import UnitOfWork
 from app.models.task import Task
 from app.schemas.task import TaskCreate, TaskUpdate
-from app.worker.tasks import send_assignee_email
+from app.worker.tasks import log_activity_task, send_assignee_email
 
 class TaskService:
     def __init__(self, uow: UnitOfWork, redis: Redis = None):
         self.uow = uow
         self.redis = redis
         
-    async def create_task(self, project_id: int, task_data: TaskCreate) -> Task:
+    async def create_task(self, project_id: int, task_data: TaskCreate, current_user_id: int) -> Task:
         async with self.uow:
             if task_data.performer_id is not None:
                 is_project_member = await self.uow.projects.is_member(project_id, task_data.performer_id)
@@ -34,23 +34,19 @@ class TaskService:
             db_data = task_data.model_dump()
             db_data["project_id"] = project_id
             new_task = await self.uow.tasks.create(db_data)
+            await self.uow.commit()
             
-            project_title = await self.uow.projects.get_project_title(project_id)
-            log_payload = {
-                "user_id": new_task.performer_id,
-                "project_id": project_id,
-                "action": "task.created",
-                "resource_type": "Task",
-                "resource_id": new_task.id,
-                "details": {
+            log_activity_task.delay(
+                user_id=current_user_id,
+                project_id=project_id,
+                action="task.created",
+                resource_type="Task",
+                resource_id=new_task.id,
+                details={
                     "task_title": new_task.title,
-                    "project_title": project_title,
                     "status": new_task.status
                 }
-            }
-            await self.uow.activity_logs.create(log_payload)
-            
-            await self.uow.commit()
+            )
             
             cache_key = f"project:{project_id}:tasks_tree"
             await self.redis.delete(cache_key)
@@ -131,16 +127,14 @@ class TaskService:
                 history_details["new_performer_id"] = updated_task.performer_id
             
             if history_details:
-                history_details["task_title"] = updated_task.title
-                log_payload = {
-                    "user_id": current_user_id,
-                    "project_id": project_id,
-                    "action": "task.updated",
-                    "resource_type": "Task",
-                    "resource_id": task_id,
-                    "details": history_details,
-                }
-                await self.uow.activity_logs.create(log_payload)
+                log_activity_task.delay(
+                    user_id=current_user_id,
+                    project_id=project_id,
+                    action="task.updated",
+                    resource_type="Task",
+                    resource_id=task_id,
+                    details=history_details
+                )
             
             await self.uow.commit()
             cache_key = f"project:{project_id}:tasks_tree"
@@ -163,24 +157,20 @@ class TaskService:
         
     async def delete_task(self, project_id: int, task_id: int, current_user_id: int):
         async with self.uow:
-            audit_metadata = await self.uow.tasks.get_task_log_metadata_secure(project_id, task_id)
-            if not audit_metadata:
+            is_deleted = await self.uow.tasks.delete_by_id_secure(task_id, project_id)
+            if not is_deleted:
                 raise ResourceNotFoundError("Задача с таким ID не найдена в данном проекте")
-            
-            await self.uow.tasks.delete_by_id_secure(task_id, project_id)
-            task_title, _, _, = audit_metadata
-            log_payload = {
-                "user_id": current_user_id,
-                "project_id": project_id,
-                "action": "task.deleted",
-                "resource_type": "Task",
-                "resource_id": task_id,
-                "details": {
-                    "task_title": task_title
-                }
-            }
-            await self.uow.activity_logs.create(log_payload)            
+
             await self.uow.commit()
+        
+        log_activity_task.delay(
+            user_id=current_user_id,
+            project_id=project_id,
+            action="task.deleted",
+            resource_type="Task",
+            resource_id=task_id,
+            details=None
+        )
         
         await self.redis.delete(f"project:{project_id}:tasks_tree")
         

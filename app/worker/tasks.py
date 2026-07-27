@@ -1,10 +1,13 @@
+import asyncio
 import time
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
+from app.models.activity_log import ActivityLog
 from app.worker.celery_app import celery_app
 from app.core.config import settings
+from app.core.database import async_engine, async_session_factory
 
 @celery_app.task(name="tasks.send_assignee_email")
 def send_assignee_email(performer_email: str, task_title: str, project_title: str):
@@ -60,3 +63,22 @@ def generate_project_report(project_id: int):
     print(f"[Celery] Отчет для проекта {project_id} готов!")
     
     return report_result
+
+@celery_app.task(name="tasks.log_activity_task")
+def log_activity_task(user_id: int | None, project_id: int | None, action: str, resource_type: str, resource_id: int | None, details: dict | None):
+    """Фоновая задача для асинхронной записи бизнес-логов в PostgreSQL."""
+    async def _save():
+        async with async_session_factory() as session:
+            log_entry = ActivityLog(
+                user_id=user_id,
+                project_id=project_id,
+                action=action,
+                resource_type=resource_type,
+                resource_id=resource_id,
+                details=details
+            )
+            session.add(log_entry)
+            await session.commit()
+        # await async_engine.dispose()
+        
+    asyncio.run(_save())
