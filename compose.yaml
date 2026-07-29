@@ -63,6 +63,7 @@ services:
       - .env
     volumes:
       - .:/code
+    # Убрать пул селери на threads
     command: celery -A app.worker.celery_app:celery_app worker --loglevel=info -P threads
     depends_on:
       db:

@@ -1,13 +1,14 @@
-import asyncio
 import time
+import uuid
+import httpx
 import smtplib
 from email.mime.text import MIMEText
+from datetime import datetime, timezone
+from arq.connections import RedisSettings
 from email.mime.multipart import MIMEMultipart
 
-from app.models.activity_log import ActivityLog
-from app.worker.celery_app import celery_app
 from app.core.config import settings
-from app.core.database import async_engine, async_session_factory
+from app.worker.celery_app import celery_app
 
 @celery_app.task(name="tasks.send_assignee_email")
 def send_assignee_email(performer_email: str, task_title: str, project_title: str):
@@ -49,7 +50,6 @@ def generate_project_report(project_id: int):
     """Тяжелая фоновая задача генерации агрегированной статистики по проекту."""
     
     print(f"[Celery] Запущена генерация отчета для проекта ID {project_id}...")
-    # Имитируем тяжелые расчеты (например, 5 секунд)
     time.sleep(5)
     
     report_result = {
@@ -64,21 +64,54 @@ def generate_project_report(project_id: int):
     
     return report_result
 
-@celery_app.task(name="tasks.log_activity_task")
-def log_activity_task(user_id: int | None, project_id: int | None, action: str, resource_type: str, resource_id: int | None, details: dict | None):
-    """Фоновая задача для асинхронной записи бизнес-логов в PostgreSQL."""
-    async def _save():
-        async with async_session_factory() as session:
-            log_entry = ActivityLog(
-                user_id=user_id,
-                project_id=project_id,
-                action=action,
-                resource_type=resource_type,
-                resource_id=resource_id,
-                details=details
+async def log_activity_task(
+    ctx,
+    user_id: int | None,
+    project_id: int | None,
+    action: str,
+    resource_type: str,
+    resource_id: int | None,
+    details: dict | None
+):
+    """Нативный асинхронный воркер отправки логов в ClickHouse."""
+    
+    CLICKHOUSE_URL = "http://127.0.0.1:8123"
+    stringfield_details = {k: str(v) for k, v in details.items()} if details else {}
+    now_utc = datetime.now(timezone.utc)
+    formatted_date = now_utc.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+    
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.post(
+                CLICKHOUSE_URL,
+                params={"query": "INSERT INTO default.activity_logs FORMAT JSONEachRow"},
+                json={
+                    "id": str(uuid.uuid4()),
+                    "user_id": user_id,
+                    "project_id": project_id if project_id is not None else 0,
+                    "action": action,
+                    "resource_type": resource_type,
+                    "resource_id": resource_id,
+                    "details": stringfield_details,
+                    "created_at": formatted_date
+                }
             )
-            session.add(log_entry)
-            await session.commit()
-        # await async_engine.dispose()
         
-    asyncio.run(_save())
+            if response.status_code != 200:
+                print(f"ClickHouse Error: {response.text}")
+                response.raise_for_status()
+        except Exception as error:
+            print(f"DEBUG: Критическая ошибка при подключении к {CLICKHOUSE_URL}: {type(error).__name__} -> {error}")
+            raise error
+
+async def startup(ctx):
+    pass
+
+async def shutdown(ctx):
+    pass
+
+class WorkerSettings:
+    functions = [log_activity_task]
+    redis_settings = RedisSettings.from_dsn(settings.REDIS_URL)
+    on_startup = startup
+    on_shutdown = shutdown

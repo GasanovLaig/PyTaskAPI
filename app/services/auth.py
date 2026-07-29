@@ -1,13 +1,15 @@
-from app.core.exceptions import InvalidCredentialsError
-from app.core.security import create_access_token, get_password_hash, verify_password
+from arq import ArqRedis
+
 from app.models.user import User
 from app.schemas.user import UserCreate
 from app.services.uow import UnitOfWork
-from app.worker.tasks import log_activity_task
+from app.core.exceptions import InvalidCredentialsError
+from app.core.security import create_access_token, get_password_hash, verify_password
 
 class AuthService:
-    def __init__(self, uow: UnitOfWork):
+    def __init__(self, uow: UnitOfWork, arq_pool: ArqRedis = None):
         self.uow = uow
+        self.arq_pool = arq_pool
         
     async def register_new_user(self, user_data: UserCreate) -> User:
         async with self.uow:
@@ -17,23 +19,25 @@ class AuthService:
             
             new_user = await self.uow.users.create(db_data)
             await self.uow.commit()
-        
-        log_activity_task.delay(
-            user_id=new_user.id,
-            project_id=None,
-            action="user.registered",
-            resource_type="User",
-            resource_id=new_user.id,
-            details={"email": new_user.email}
-        )
             
-        return new_user
+            await self.arq_pool.enqueue_job(
+                "log_activity_task",
+                user_id=new_user.id,
+                project_id=None,
+                action="user.registered",
+                resource_type="User",
+                resource_id=new_user.id,
+                details={"email": new_user.email}
+            )
+        
+            return new_user
             
     async def authenticate_user(self, email: str, plain_password: str) -> str:
         async with self.uow:
             user = await self.uow.users.get_by_email(email)
             if not user or not verify_password(plain_password, user.hashed_password):
-                log_activity_task.delay(
+                await self.arq_pool.enqueue_job(
+                    "log_activity_task",
                     user_id=None,
                     project_id=None,
                     action="auth.failed",
@@ -45,15 +49,16 @@ class AuthService:
             
             token_data = {"sub": user.email}
             access_token = create_access_token(token_data)
-        
-        log_activity_task.delay(
-            user_id=user.id,
-            project_id=None,
-            action="auth.login",
-            resource_type="User",
-            resource_id=user.id,
-            details=None
-        )
             
-        return access_token
+            await self.arq_pool.enqueue_job(
+                "log_activity_task",
+                user_id=user.id,
+                project_id=None,
+                action="auth.login",
+                resource_type="User",
+                resource_id=user.id,
+                details=None
+            )
+        
+            return access_token
     

@@ -1,16 +1,18 @@
+from arq import ArqRedis
 from celery.result import AsyncResult
 from fastapi import APIRouter, Depends, status
 
-from app.api.dependencies.role import CheckProjectRole
+from app.models.user import User
+from app.models.project import Project
+from app.services.uow import UnitOfWork
+from app.models.project_member import Role
 from app.api.dependencies.uow import get_uow
 from app.core.security import get_current_user
-from app.models.project import Project
-from app.models.project_member import Role
-from app.models.user import User
-from app.schemas.project import ProjectMemberAdd, ProjectCreate, ProjectResponse, ProjectUpdate, ReportStatusResponse, ReportTaskResponse
 from app.services.project import ProjectService
-from app.services.uow import UnitOfWork
+from app.api.dependencies.arq import get_arq_pool
 from app.worker.tasks import generate_project_report
+from app.api.dependencies.role import CheckProjectRole
+from app.schemas.project import ProjectMemberAdd, ProjectCreate, ProjectResponse, ProjectUpdate, ReportStatusResponse, ReportTaskResponse
 
 router = APIRouter(tags=["Проекты"])
 
@@ -18,9 +20,10 @@ router = APIRouter(tags=["Проекты"])
 async def create_project(
     project_data: ProjectCreate,
     uow: UnitOfWork = Depends(get_uow),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    arq_pool: ArqRedis = Depends(get_arq_pool)
 ) -> Project:
-    project_service = ProjectService(uow)
+    project_service = ProjectService(uow, arq_pool)
     
     return await project_service.create_new_project(project_data, current_user.id)
 
@@ -29,9 +32,10 @@ async def add_project_member(
     project_id: int,
     member_data: ProjectMemberAdd,
     uow: UnitOfWork = Depends(get_uow),
-    current_user: User = Depends(CheckProjectRole([Role.OWNER]))
+    current_user: User = Depends(CheckProjectRole([Role.OWNER])),
+    arq_pool: ArqRedis = Depends(get_arq_pool)
 ):
-    project_service = ProjectService(uow)
+    project_service = ProjectService(uow, arq_pool)
     await project_service.add_project_member(project_id, member_data, current_user.id)
     
     return {"detail": "Пользователь успешно добавлен в проект"}
@@ -50,9 +54,10 @@ async def update_project(
     project_id: int,
     project_data: ProjectUpdate,
     uow: UnitOfWork = Depends(get_uow),
-    current_user: User = Depends(CheckProjectRole([Role.OWNER]))
+    current_user: User = Depends(CheckProjectRole([Role.OWNER])),
+    arq_pool: ArqRedis = Depends(get_arq_pool)
 ) -> Project:
-    project_service = ProjectService(uow)
+    project_service = ProjectService(uow, arq_pool)
     
     return await project_service.update_project_details(project_id, project_data, current_user.id)
     
@@ -60,9 +65,10 @@ async def update_project(
 async def delete_project(
     project_id: int,
     uow: UnitOfWork = Depends(get_uow),
-    current_user: User = Depends(CheckProjectRole([Role.OWNER]))
+    current_user: User = Depends(CheckProjectRole([Role.OWNER])),
+    arq_pool: ArqRedis = Depends(get_arq_pool)
 ):
-    project_service = ProjectService(uow)
+    project_service = ProjectService(uow, arq_pool)
     await project_service.delete_project(project_id, current_user.id)
     
 @router.post(

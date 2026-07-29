@@ -1,12 +1,14 @@
-from app.core.exceptions import ResourceNotFoundError
+from arq import ArqRedis
+
 from app.models.project import Project
-from app.schemas.project import ProjectMemberAdd, ProjectCreate, ProjectUpdate
 from app.services.uow import UnitOfWork
-from app.worker.tasks import log_activity_task
+from app.core.exceptions import ResourceNotFoundError
+from app.schemas.project import ProjectMemberAdd, ProjectCreate, ProjectUpdate
 
 class ProjectService:
-    def __init__(self, uow: UnitOfWork):
+    def __init__(self, uow: UnitOfWork, arq_pool: ArqRedis = None):
         self.uow = uow
+        self.arq_pool = arq_pool
         
     async def create_new_project(self, project_data: ProjectCreate, current_user_id: int) -> Project:
         async with self.uow:
@@ -14,16 +16,17 @@ class ProjectService:
             new_project = await self.uow.projects.create_project_with_user(project_dict, current_user_id)
             await self.uow.commit()
             
-        log_activity_task.delay(
-            user_id=current_user_id,
-            project_id=new_project.id,
-            action="project.created",
-            resource_type="Project",
-            resource_id=new_project.id,
-            details={"project_title": new_project.title}
-        )
-
-        return new_project
+            await self.arq_pool.enqueue_job(
+                "log_activity_task",
+                user_id=current_user_id,
+                project_id=new_project.id,
+                action="project.created",
+                resource_type="Project",
+                resource_id=new_project.id,
+                details={"project_title": new_project.title}
+            )
+            
+            return new_project
                   
     async def add_project_member(self, project_id: int, member_data: ProjectMemberAdd, current_user_id: int):
         async with self.uow:
@@ -32,15 +35,16 @@ class ProjectService:
             await self.uow.projects.add_project_member(db_data)
             await self.uow.commit()
             
-        log_activity_task.delay(
-            user_id=current_user_id,
-            project_id=project_id,
-            action="project.member_added",
-            resource_type="User",
-            resource_id=member_data.user_id,
-            details={"role": member_data.role.value}
-        )
-                
+            await self.arq_pool.enqueue_job(
+                "log_activity_task",
+                user_id=current_user_id,
+                project_id=project_id,
+                action="project.member_added",
+                resource_type="User",
+                resource_id=member_data.user_id,
+                details={"role": member_data.role.value}
+            )
+            
     async def get_my_projects(self, current_user_id: int) -> list[Project]:
         async with self.uow:
             return await self.uow.projects.get_my_projects(current_user_id)
@@ -53,17 +57,18 @@ class ProjectService:
                 raise ResourceNotFoundError("Проект с таким ID не найден")
             
             await self.uow.commit()
-        
-        log_activity_task.delay(
-            user_id=current_user_id,
-            project_id=project_id,
-            action="project.updated",
-            resource_type="Project",
-            resource_id=project_id,
-            details={"updated_fields": list(db_data.keys())}
-        )
             
-        return updated_project
+            await self.arq_pool.enqueue_job(
+                "log_activity_task",
+                user_id=current_user_id,
+                project_id=project_id,
+                action="project.updated",
+                resource_type="Project",
+                resource_id=project_id,
+                details={"updated_fields": list(db_data.keys())}
+            )
+        
+            return updated_project
     
     async def delete_project(self, project_id: int, current_user_id: int):
         async with self.uow:
@@ -72,13 +77,14 @@ class ProjectService:
                 raise ResourceNotFoundError("Проект с таким ID не найден")
             
             await self.uow.commit()
+            
+            await self.arq_pool.enqueue_job(
+                "log_activity_task",
+                user_id=current_user_id,
+                project_id=project_id,
+                action="project.deleted",
+                resource_type="Project",
+                resource_id=project_id,
+                details=None
+            )
         
-        log_activity_task.delay(
-            user_id=current_user_id,
-            project_id=project_id,
-            action="project.deleted",
-            resource_type="Project",
-            resource_id=project_id,
-            details=None
-        )
-    

@@ -1,17 +1,19 @@
 import json
-from fastapi.encoders import jsonable_encoder
+from arq import ArqRedis
 from redis.asyncio import Redis
+from fastapi.encoders import jsonable_encoder
 
-from app.core.exceptions import ResourceNotFoundError
-from app.services.uow import UnitOfWork
 from app.models.task import Task
+from app.services.uow import UnitOfWork
+from app.worker.tasks import send_assignee_email
 from app.schemas.task import TaskCreate, TaskUpdate
-from app.worker.tasks import log_activity_task, send_assignee_email
+from app.core.exceptions import ResourceNotFoundError
 
 class TaskService:
-    def __init__(self, uow: UnitOfWork, redis: Redis = None):
+    def __init__(self, uow: UnitOfWork, redis: Redis = None, arq_pool: ArqRedis = None):
         self.uow = uow
         self.redis = redis
+        self.arq_pool = arq_pool
         
     async def create_task(self, project_id: int, task_data: TaskCreate, current_user_id: int) -> Task:
         async with self.uow:
@@ -36,7 +38,8 @@ class TaskService:
             new_task = await self.uow.tasks.create(db_data)
             await self.uow.commit()
             
-            log_activity_task.delay(
+            await self.arq_pool.enqueue_job(
+                "log_activity_task",
                 user_id=current_user_id,
                 project_id=project_id,
                 action="task.created",
@@ -126,15 +129,15 @@ class TaskService:
                 history_details["old_performer_id"] = old_task_performer_id
                 history_details["new_performer_id"] = updated_task.performer_id
             
-            if history_details:
-                log_activity_task.delay(
-                    user_id=current_user_id,
-                    project_id=project_id,
-                    action="task.updated",
-                    resource_type="Task",
-                    resource_id=task_id,
-                    details=history_details
-                )
+            await self.arq_pool.enqueue_job(
+                "log_activity_task",
+                user_id=current_user_id,
+                project_id=project_id,
+                action="task.updated",
+                resource_type="Task",
+                resource_id=task_id,
+                details=history_details
+            )
             
             await self.uow.commit()
             cache_key = f"project:{project_id}:tasks_tree"
@@ -163,14 +166,15 @@ class TaskService:
 
             await self.uow.commit()
         
-        log_activity_task.delay(
-            user_id=current_user_id,
-            project_id=project_id,
-            action="task.deleted",
-            resource_type="Task",
-            resource_id=task_id,
-            details=None
-        )
-        
-        await self.redis.delete(f"project:{project_id}:tasks_tree")
+            await self.arq_pool.enqueue_job(
+                "log_activity_task",
+                user_id=current_user_id,
+                project_id=project_id,
+                action="task.deleted",
+                resource_type="Task",
+                resource_id=task_id,
+                details=None
+            )
+
+            await self.redis.delete(f"project:{project_id}:tasks_tree")
         

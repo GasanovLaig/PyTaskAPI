@@ -1,15 +1,17 @@
-from fastapi import APIRouter, Depends, Query, status
+from arq import ArqRedis
 from redis.asyncio import Redis
+from fastapi import APIRouter, Depends, Query, status
 
-from app.api.dependencies.role import CheckProjectRole
-from app.api.dependencies.uow import get_uow
-from app.core.redis_client import get_redis
-from app.services.uow import UnitOfWork
-from app.models.project_member import Role
-from app.models.task import Task
 from app.models.user import User
-from app.schemas.task import TaskCreate, TaskCreateUpdateResponse, TaskResponse, TaskTreeResponse, TaskUpdate
+from app.models.task import Task
+from app.services.uow import UnitOfWork
 from app.services.task import TaskService
+from app.models.project_member import Role
+from app.core.redis_client import get_redis
+from app.api.dependencies.uow import get_uow
+from app.api.dependencies.arq import get_arq_pool
+from app.api.dependencies.role import CheckProjectRole
+from app.schemas.task import TaskCreate, TaskCreateUpdateResponse, TaskResponse, TaskTreeResponse, TaskUpdate
 
 router = APIRouter(tags=["Задачи"])
 
@@ -19,9 +21,10 @@ async def create_task(
     task_data: TaskCreate,
     uow: UnitOfWork = Depends(get_uow),
     redis: Redis = Depends(get_redis),
+    arq_pool: ArqRedis = Depends(get_arq_pool),
     current_user: User = Depends(CheckProjectRole([Role.OWNER, Role.MANAGER]))
 ) -> Task:
-    task_service = TaskService(uow, redis)
+    task_service = TaskService(uow, redis, arq_pool)
     
     return await task_service.create_task(project_id, task_data, current_user.id)
 
@@ -75,9 +78,10 @@ async def update_task(
     task_data: TaskUpdate,
     uow: UnitOfWork = Depends(get_uow),
     redis: Redis = Depends(get_redis),
+    arq_pool: ArqRedis = Depends(get_arq_pool),
     current_user: User = Depends(CheckProjectRole([Role.OWNER, Role.MANAGER]))
 ) -> Task:
-    task_service = TaskService(uow, redis)
+    task_service = TaskService(uow, redis, arq_pool)
     
     return await task_service.update_task_details(
         project_id,
@@ -92,8 +96,9 @@ async def delete_task(
     task_id: int,
     uow: UnitOfWork = Depends(get_uow),
     redis: Redis = Depends(get_redis),
+    arq_pool: ArqRedis = Depends(get_arq_pool),
     current_user: User = Depends(CheckProjectRole([Role.OWNER, Role.MANAGER]))
 ):
-    task_service = TaskService(uow, redis)
+    task_service = TaskService(uow, redis, arq_pool)
     await task_service.delete_task(project_id, task_id, current_user.id)
     
