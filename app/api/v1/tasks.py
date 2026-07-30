@@ -11,7 +11,13 @@ from app.core.redis_client import get_redis
 from app.api.dependencies.uow import get_uow
 from app.api.dependencies.arq import get_arq_pool
 from app.api.dependencies.role import CheckProjectRole
-from app.schemas.task import TaskCreate, TaskCreateUpdateResponse, TaskResponse, TaskTreeResponse, TaskUpdate
+from app.schemas.task import (
+    TaskCreate,
+    TaskCreateUpdateResponse,
+    TaskResponse,
+    TaskTreeResponse,
+    TaskUpdate
+)
 
 router = APIRouter(tags=["Задачи"])
 

@@ -10,9 +10,16 @@ from app.api.dependencies.uow import get_uow
 from app.core.security import get_current_user
 from app.services.project import ProjectService
 from app.api.dependencies.arq import get_arq_pool
-from app.worker.tasks import generate_project_report
+from app.worker.celery_tasks import generate_project_report
 from app.api.dependencies.role import CheckProjectRole
-from app.schemas.project import ProjectMemberAdd, ProjectCreate, ProjectResponse, ProjectUpdate, ReportStatusResponse, ReportTaskResponse
+from app.schemas.project import (
+    ProjectMemberAdd,
+    ProjectCreate,
+    ProjectResponse,
+    ProjectUpdate,
+    ReportStatusResponse,
+    ReportTaskResponse
+)
 
 router = APIRouter(tags=["Проекты"])
 

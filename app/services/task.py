@@ -5,7 +5,7 @@ from fastapi.encoders import jsonable_encoder
 
 from app.models.task import Task
 from app.services.uow import UnitOfWork
-from app.worker.tasks import send_assignee_email
+from app.worker.celery_tasks import send_assignee_email
 from app.schemas.task import TaskCreate, TaskUpdate
 from app.core.exceptions import ResourceNotFoundError
 
