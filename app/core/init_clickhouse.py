@@ -9,7 +9,7 @@ CLICKHOUSE_DDL = """
 CREATE TABLE IF NOT EXISTS activity_logs (
     id UUID,
     user_id Nullable(Int64),
-    project_id Nullable(Int64),
+    project_id Int64,
     action LowCardinality(String),
     resource_type LowCardinality(String),
     resource_id Nullable(Int64),
