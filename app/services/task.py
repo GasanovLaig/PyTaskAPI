@@ -5,9 +5,10 @@ from fastapi.encoders import jsonable_encoder
 
 from app.models.task import Task
 from app.services.uow import UnitOfWork
-from app.worker.celery_tasks import send_assignee_email
 from app.schemas.task import TaskCreate, TaskUpdate
 from app.core.exceptions import ResourceNotFoundError
+from app.worker.celery_tasks import send_assignee_email
+from app.utils.safe_arq_enqueue import safe_arq_enqueue
 
 class TaskService:
     def __init__(self, uow: UnitOfWork, redis: Redis = None, arq_pool: ArqRedis = None):
@@ -38,7 +39,8 @@ class TaskService:
             new_task = await self.uow.tasks.create(db_data)
             await self.uow.commit()
             
-            await self.arq_pool.enqueue_job(
+            await safe_arq_enqueue(
+                self.arq_pool,
                 "log_activity_task",
                 user_id=current_user_id,
                 project_id=project_id,
@@ -129,7 +131,8 @@ class TaskService:
                 history_details["old_performer_id"] = old_task_performer_id
                 history_details["new_performer_id"] = updated_task.performer_id
             
-            await self.arq_pool.enqueue_job(
+            await safe_arq_enqueue(
+                self.arq_pool,
                 "log_activity_task",
                 user_id=current_user_id,
                 project_id=project_id,
@@ -166,7 +169,8 @@ class TaskService:
 
             await self.uow.commit()
         
-            await self.arq_pool.enqueue_job(
+            await safe_arq_enqueue(
+                self.arq_pool,
                 "log_activity_task",
                 user_id=current_user_id,
                 project_id=project_id,

@@ -14,7 +14,7 @@ async def log_activity_task(
     resource_id: int | None,
     details: dict | None
 ):
-    """Нативный асинхронный воркер отправки логов в ClickHouse."""
+    """Буферизация логирования. Собирает логи в пачки для отправки в БД."""
     stringfield_details = {key: str(value) for key, value in details.items()} if details else {}
     formatted_date = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
     
@@ -37,7 +37,7 @@ async def log_activity_task(
         await flush_logs(ctx, reason="batch_size_limit")
         
 async def flush_logs(ctx, reason: str):
-    """Вспомогательная функция отправки накопленной пачки логов в ClickHouse."""
+    """Функция отправки накопленной пачки логов в ClickHouse."""
     async with ctx["logs_lock"]:
         if not ctx["logs_batch"]:
             return
