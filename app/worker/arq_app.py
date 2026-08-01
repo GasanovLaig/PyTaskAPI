@@ -3,6 +3,7 @@ from httpx import AsyncClient, Limits
 from arq.connections import RedisSettings
 
 from app.core.config import settings
+from app.core.logger import setup_logger
 from app.worker.arq_tasks import flush_logs, log_activity_task
 
 async def flush_timer_loop(ctx):
@@ -16,6 +17,7 @@ async def flush_timer_loop(ctx):
         pass
 
 async def startup(ctx):
+    setup_logger()
     ctx["http_client"] = AsyncClient(
         limits=Limits(max_connections=100, max_keepalive_connections=20)
     )

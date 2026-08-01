@@ -1,7 +1,10 @@
 import uuid
 import json
+import structlog
 from httpx import AsyncClient
 from datetime import datetime, timezone
+
+logger = structlog.get_logger("infra.arq_worker")
 
 BATCH_SIZE_LIMIT = 1000
 
@@ -33,7 +36,16 @@ async def log_activity_task(
         ctx["logs_batch"].append(log_entry)
         current_size = len(ctx["logs_batch"])
         
+    job_id = ctx.get("job_id", "unknown_job")
+    logger.debug(
+        "activity_received_for_buffer",
+        job_id=job_id,
+        action=action,
+        resource_type=resource_type,
+        resource_id=resource_id
+    )
     if current_size >= BATCH_SIZE_LIMIT:
+        logger.info("buffer_limit_reached", current_size=current_size, limit=BATCH_SIZE_LIMIT, job_id=job_id)
         await flush_logs(ctx, reason="batch_size_limit")
         
 async def flush_logs(ctx, reason: str):
@@ -49,6 +61,8 @@ async def flush_logs(ctx, reason: str):
     CLICKHOUSE_URL = ctx["clickhouse_url"]
     
     ndjson_data = "\n".join(json.dumps(log) for log in to_send) + "\n"
+    job_id = logger.get("job_id", "flush_coroutine")
+    logger.info("sending_batch_to_clickhouse", batch_size=len(to_send), reason=reason, job_id=job_id)
     try:
         response = await client.post(
             CLICKHOUSE_URL,
@@ -57,12 +71,12 @@ async def flush_logs(ctx, reason: str):
             headers={"Content-Type": "application/x-ndjson"}
         )
         if response.status_code != 200:
-            print(f"ClickHouse Batch Error: {response.text}")
+            logger.error("clickhouse_batch_rejected", status_code=response.status_code, error=response.text, job_id=job_id)
             response.raise_for_status()
         else:
-            print(f"DEBUG: Успешно отправлена пачка из {len(to_send)} логов в ClickHouse (триггер: {reason}).")
+            logger.info("batch_successfully_written", batch_size=len(to_send), reason=reason, job_id=job_id)
     except Exception as error:
-        print(f"DEBUG: Ошибка отправки пачки в ClickHouse: {type(error).__name__} -> {error}")
+        logger.exception("clickhouse_send_failed", reason=reason, job_id=job_id)
         
         async with ctx["logs_lock"]:
             ctx["logs_batch"].extend(to_send)

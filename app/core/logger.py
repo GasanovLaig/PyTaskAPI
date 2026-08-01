@@ -1,5 +1,3 @@
-import logging
-import sys
 import structlog
 
 def setup_logger():
@@ -8,11 +6,16 @@ def setup_logger():
     processors = [
         structlog.contextvars.merge_contextvars,
         structlog.processors.add_log_level,
-        structlog.processors.TimeStamper(fmt="iso", utc=True),
+        structlog.processors.TimeStamper(fmt="%Y-%m-%d %H:%M:%S", utc=False),
         structlog.processors.StackInfoRenderer(),
         structlog.processors.format_exc_info
     ]
-    processors.append(structlog.processors.JSONRenderer())
+    
+    LOCAL_DEV = True
+    if LOCAL_DEV:
+        processors.append(structlog.dev.ConsoleRenderer(colors=True))
+    else:
+        processors.append(structlog.processors.JSONRenderer())
     
     structlog.configure(
         processors=processors,
