@@ -15,7 +15,6 @@ from app.models.tag import Tag
 from app.models.comment import Comment
 from app.models.project_member import ProjectMember
 from app.models.task_tags import task_tags_table
-from app.models.activity_log import ActivityLog
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
