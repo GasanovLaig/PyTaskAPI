@@ -1,4 +1,4 @@
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from app.models.project_member import Role
@@ -25,11 +25,20 @@ class ProjectMemberAdd(BaseModel):
     role: Role = Field(Role.DEVELOPER, description="Роль сотрудника в проекте")
     
 class ReportTaskResponse(BaseModel):
-    task_id: str = Field(..., description="ID фоновой задачи Celery")
-    status: str = Field("Pending", description="Текущий статус обработки задачи")
+    task_id: str = Field(..., description="Уникальный ID фоновой задачи в очереди ARQ")
+    status: Literal["queued", "in_progress", "complete", "failed"] = Field(
+        "queued",
+        description="Текущий статус обработки задачи воркером"
+    )
     
 class ReportStatusResponse(BaseModel):
-    task_id: str = Field(..., description="ID задачи")
-    status: str = Field(..., description="Статус выполнения (PENDING, STARTED, SUCCESS, FAILURE)")
-    result: Any | None = Field(..., description="Результат выполнения задачи (сгенерированный отчет), если она готова")
+    task_id: str = Field(..., description="ID проверяемой задачи")
+    status: Literal["queued", "in_progress", "complete", "failed"] = Field(
+        ...,
+        description="Статус выполнения в ARQ (queued, in_progress, complete, failed)"
+    )
+    result: Any | None = Field(
+        None,
+        description="Результат выполнения задачи (сгенерированный отчет), если она готова"
+    )
     

@@ -9,7 +9,7 @@ class ResourceNotFoundError(AppError):
     pass
 
 class ResourceAlreadyExistsError(AppError):
-    """Исключение, если объект нарушает уникальность (замена для 409)."""
+    """Исключение, если объект нарушает уникальность (замена для HTTP 409)."""
     pass
 
 class DatabaseDeadlockError(AppError):
@@ -21,5 +21,9 @@ class InvalidCredentialsError(AppError):
     pass
 
 class AccessDeniedError(AppError):
-    """Исключение для ошибок прав доступа (замена для 403)."""
+    """Исключение для ошибок прав доступа (замена для HTTP 403)."""
+    pass
+
+class QueueServiceUnavailableError(AppError):
+    """Исключение, если сервис очередей задач (ARQ/Redis) недоступен (HTTP 503)."""
     pass

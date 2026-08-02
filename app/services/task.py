@@ -9,7 +9,6 @@ from app.utils.enqueue_task import enqueue_task
 from app.schemas.task import TaskCreate, TaskUpdate
 from app.core.exceptions import ResourceNotFoundError
 from app.utils.clear_cache_key import clear_cache_key
-from app.worker.celery_tasks import send_assignee_email
 
 class TaskService:
     def __init__(self, uow: UnitOfWork, redis: Redis = None, arq_pool: ArqRedis = None):
@@ -61,7 +60,9 @@ class TaskService:
                     project_id,
                     new_task.performer_id
                 )
-                send_assignee_email.delay(
+                await enqueue_task(
+                    self.arq_pool,
+                    "send_assignee_email_task",
                     performer_email=performer_email,
                     task_title=new_task.title,
                     project_title=project_title
@@ -152,7 +153,9 @@ class TaskService:
                     project_id,
                     updated_task.performer_id
                 )
-                send_assignee_email.delay(
+                await enqueue_task(
+                    self.arq_pool,
+                    "send_assignee_email_task",
                     performer_email=performer_email,
                     task_title=updated_task.title,
                     project_title=project_title

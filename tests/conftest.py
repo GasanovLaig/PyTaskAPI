@@ -7,16 +7,12 @@ from sqlalchemy.pool import NullPool
 from main import app
 from app.core.database import Base, get_db
 from app.core.config import Settings, settings
-from app.worker.celery_app import celery_app
 from tests.factories import ProjectFactory, UserFactory, TaskFactory
 
 MAIN_DB_NAME_TO_BAN = settings.DB_NAME.lower()
-# Переопределение глобальной переменной REDIS_URL настроек pydantic-settings объекта settings для celery_app
 settings_dict = Settings(_env_file=".env.tests", _env_prefix="TEST_").model_dump()
 for key, value in settings_dict.items():
     setattr(settings, key, value)
-celery_app.conf.broker_url = settings.REDIS_URL
-celery_app.conf.result_backend = settings.REDIS_URL
 
 TEST_DATABASE_URL = settings.DATABASE_URL_ASYNC
 

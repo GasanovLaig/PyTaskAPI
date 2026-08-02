@@ -3,6 +3,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app.core.exceptions import (
+    QueueServiceUnavailableError,
     ResourceAlreadyExistsError,
     ResourceNotFoundError,
     DatabaseDeadlockError,
@@ -53,6 +54,12 @@ async def access_denied_handlers(request: Request, exception: AccessDeniedError)
         content={"detail": exception.detail}
     )
     
+async def queue_service_unavailable_handler(request: Request, exception: QueueServiceUnavailableError):
+    return JSONResponse(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        content={"detail": "Сервис создания отчетов временно недоступен. Пожалуйста, повторите попытку позже."}
+    )
+    
 def register_exception_handlers(app: FastAPI) -> None:
     """Централизованная регистрация всех обработчиков исключений приложения."""
     app.add_exception_handler(Exception, global_unhandled_exception_handler)
@@ -62,3 +69,4 @@ def register_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(DatabaseDeadlockError, database_deadlock_handler)
     app.add_exception_handler(InvalidCredentialsError, invalid_credentials_handler)
     app.add_exception_handler(AccessDeniedError, access_denied_handlers)
+    app.add_exception_handler(QueueServiceUnavailableError, queue_service_unavailable_handler)

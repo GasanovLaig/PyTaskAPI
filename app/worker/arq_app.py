@@ -4,7 +4,9 @@ from arq.connections import RedisSettings
 
 from app.core.config import settings
 from app.core.logger import setup_logger
-from app.worker.arq_tasks import flush_logs, log_activity_task
+from app.worker.tasks.reports import generate_project_report_task
+from app.worker.tasks.notifications import send_assignee_email_task
+from app.worker.tasks.analytics import flush_logs, log_activity_task
 
 async def flush_timer_loop(ctx):
     """Фоновая задача, которая проверяет буфер каждые 5 секунд 
@@ -38,7 +40,7 @@ async def shutdown(ctx):
         await client.aclose()
     
 class WorkerSettings:
-    functions = [log_activity_task]
+    functions = [log_activity_task, send_assignee_email_task, generate_project_report_task]
     redis_settings = RedisSettings.from_dsn(settings.REDIS_URL)
     on_startup = startup
     on_shutdown = shutdown

@@ -1,5 +1,5 @@
 from arq import ArqRedis
-from celery.result import AsyncResult
+from arq.jobs import Job
 from fastapi import APIRouter, Depends, status
 
 from app.models.user import User
@@ -10,7 +10,6 @@ from app.api.dependencies.uow import get_uow
 from app.core.security import get_current_user
 from app.services.project import ProjectService
 from app.api.dependencies.arq import get_arq_pool
-from app.worker.celery_tasks import generate_project_report
 from app.api.dependencies.role import CheckProjectRole
 from app.schemas.project import (
     ProjectMemberAdd,
@@ -20,6 +19,7 @@ from app.schemas.project import (
     ReportStatusResponse,
     ReportTaskResponse
 )
+from app.utils.enqueue_task import enqueue_task
 
 router = APIRouter(tags=["Проекты"])
 
@@ -86,13 +86,20 @@ async def delete_project(
 )
 async def request_project_report(
     project_id: int,
+    arq_pool: ArqRedis = Depends(get_arq_pool),
     _: User = Depends(CheckProjectRole([Role.OWNER, Role.MANAGER]))
 ):
-    async_task = generate_project_report.delay(project_id)
+    job = await enqueue_task(
+        arq_pool,
+        "generate_project_report_task",
+        suppress_errors=False,
+        project_id=project_id
+    )
+    job_status = await job.status()
     
     return ReportTaskResponse(
-        task_id=async_task.id,
-        status=async_task.status
+        task_id=job.job_id,
+        status=job_status
     )
     
 @router.get(
@@ -103,13 +110,19 @@ async def request_project_report(
 async def get_report_status(
     project_id: int,
     task_id: str,
+    arq_pool: ArqRedis = Depends(get_arq_pool),
     _: User = Depends(CheckProjectRole([Role.OWNER, Role.MANAGER, Role.DEVELOPER]))
 ):
-    task_result = AsyncResult(task_id)
-    result_data = task_result.result if task_result.status == "SUCCESS" else None
+    job = Job(task_id, arq_pool)
+    job_status = await job.status()
     
+    result_data = None
+    if job_status == "complete":
+        result_data = await job.result()
+        
     return ReportStatusResponse(
         task_id=task_id,
-        status=task_result.status,
+        status=job_status,
         result=result_data
     )
+    
