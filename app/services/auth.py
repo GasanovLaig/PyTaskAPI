@@ -4,7 +4,7 @@ from app.models.user import User
 from app.schemas.user import UserCreate
 from app.services.uow import UnitOfWork
 from app.core.exceptions import InvalidCredentialsError
-from app.utils.safe_arq_enqueue import safe_arq_enqueue
+from app.utils.enqueue_task import enqueue_task
 from app.core.security import create_access_token, get_password_hash, verify_password
 
 class AuthService:
@@ -21,7 +21,7 @@ class AuthService:
             new_user = await self.uow.users.create(db_data)
             await self.uow.commit()
             
-            await safe_arq_enqueue(
+            await enqueue_task(
                 self.arq_pool,
                 "log_activity_task",
                 user_id=new_user.id,
@@ -38,7 +38,7 @@ class AuthService:
         async with self.uow:
             user = await self.uow.users.get_by_email(email)
             if not user or not verify_password(plain_password, user.hashed_password):
-                await safe_arq_enqueue(
+                await enqueue_task(
                     self.arq_pool,
                     "log_activity_task",
                     user_id=None,
@@ -53,7 +53,7 @@ class AuthService:
             token_data = {"sub": user.email}
             access_token = create_access_token(token_data)
             
-            await safe_arq_enqueue(
+            await enqueue_task(
                 self.arq_pool,
                 "log_activity_task",
                 user_id=user.id,

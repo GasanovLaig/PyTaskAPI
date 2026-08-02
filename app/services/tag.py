@@ -1,9 +1,10 @@
 from redis.asyncio import Redis
 
-from app.core.exceptions import ResourceNotFoundError
 from app.models.tag import Tag
 from app.schemas.tag import TagCreate
 from app.services.uow import UnitOfWork
+from app.core.exceptions import ResourceNotFoundError
+from app.utils.clear_cache_key import clear_cache_key
 
 class TagService:
     def __init__(self, uow: UnitOfWork, redis: Redis = None):
@@ -17,7 +18,7 @@ class TagService:
             new_tag = await self.uow.tags.create(db_data)
             await self.uow.commit()
             
-            return new_tag
+        return new_tag
     
     async def get_all_tags(self, project_id: int) -> list[Tag]:
         async with self.uow:
@@ -35,7 +36,7 @@ class TagService:
             
             await self.uow.commit()
                 
-        await self.redis.delete(f"project:{project_id}:tasks_tree")
+        await clear_cache_key(self.redis, f"project:{project_id}:tasks_tree")
             
     async def detach_tag_from_task(self, project_id: int, task_id: int, tag_id: int) -> None:
         async with self.uow:
@@ -45,7 +46,7 @@ class TagService:
                 
             await self.uow.commit()
             
-        await self.redis.delete(f"project:{project_id}:tasks_tree")
+        await clear_cache_key(self.redis, f"project:{project_id}:tasks_tree")
     
     async def delete_tag_by_id(self, project_id: int, tag_id: int) -> None:
         async with self.uow:
@@ -55,5 +56,5 @@ class TagService:
 
             await self.uow.commit()
             
-        await self.redis.delete(f"project:{project_id}:tasks_tree")
+        await clear_cache_key(self.redis, f"project:{project_id}:tasks_tree")
         

@@ -61,7 +61,7 @@ async def flush_logs(ctx, reason: str):
     CLICKHOUSE_URL = ctx["clickhouse_url"]
     
     ndjson_data = "\n".join(json.dumps(log) for log in to_send) + "\n"
-    job_id = logger.get("job_id", "flush_coroutine")
+    job_id = ctx.get("job_id", "flush_coroutine")
     logger.info("sending_batch_to_clickhouse", batch_size=len(to_send), reason=reason, job_id=job_id)
     try:
         response = await client.post(

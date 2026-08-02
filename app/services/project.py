@@ -3,7 +3,7 @@ from arq import ArqRedis
 from app.models.project import Project
 from app.services.uow import UnitOfWork
 from app.core.exceptions import ResourceNotFoundError
-from app.utils.safe_arq_enqueue import safe_arq_enqueue
+from app.utils.enqueue_task import enqueue_task
 from app.schemas.project import ProjectMemberAdd, ProjectCreate, ProjectUpdate
 
 class ProjectService:
@@ -17,7 +17,7 @@ class ProjectService:
             new_project = await self.uow.projects.create_project_with_user(project_dict, current_user_id)
             await self.uow.commit()
             
-            await safe_arq_enqueue(
+            await enqueue_task(
                 self.arq_pool,
                 "log_activity_task",
                 user_id=current_user_id,
@@ -37,7 +37,7 @@ class ProjectService:
             await self.uow.projects.add_project_member(db_data)
             await self.uow.commit()
             
-            await safe_arq_enqueue(
+            await enqueue_task(
                 self.arq_pool,
                 "log_activity_task",
                 user_id=current_user_id,
@@ -61,7 +61,7 @@ class ProjectService:
             
             await self.uow.commit()
             
-            await safe_arq_enqueue(
+            await enqueue_task(
                 self.arq_pool,
                 "log_activity_task",
                 user_id=current_user_id,
@@ -82,7 +82,7 @@ class ProjectService:
             
             await self.uow.commit()
             
-            await safe_arq_enqueue(
+            await enqueue_task(
                 self.arq_pool,
                 "log_activity_task",
                 user_id=current_user_id,

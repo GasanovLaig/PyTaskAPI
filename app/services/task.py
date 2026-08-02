@@ -5,10 +5,11 @@ from fastapi.encoders import jsonable_encoder
 
 from app.models.task import Task
 from app.services.uow import UnitOfWork
+from app.utils.enqueue_task import enqueue_task
 from app.schemas.task import TaskCreate, TaskUpdate
 from app.core.exceptions import ResourceNotFoundError
+from app.utils.clear_cache_key import clear_cache_key
 from app.worker.celery_tasks import send_assignee_email
-from app.utils.safe_arq_enqueue import safe_arq_enqueue
 
 class TaskService:
     def __init__(self, uow: UnitOfWork, redis: Redis = None, arq_pool: ArqRedis = None):
@@ -39,7 +40,7 @@ class TaskService:
             new_task = await self.uow.tasks.create(db_data)
             await self.uow.commit()
             
-            await safe_arq_enqueue(
+            await enqueue_task(
                 self.arq_pool,
                 "log_activity_task",
                 user_id=current_user_id,
@@ -53,8 +54,7 @@ class TaskService:
                 }
             )
             
-            cache_key = f"project:{project_id}:tasks_tree"
-            await self.redis.delete(cache_key)
+            await clear_cache_key(self.redis, f"project:{project_id}:tasks_tree")
             
             if new_task.performer_id is not None:
                 performer_email, project_title = await self.uow.tasks.get_metadata_for_celery(
@@ -131,7 +131,7 @@ class TaskService:
                 history_details["old_performer_id"] = old_task_performer_id
                 history_details["new_performer_id"] = updated_task.performer_id
             
-            await safe_arq_enqueue(
+            await enqueue_task(
                 self.arq_pool,
                 "log_activity_task",
                 user_id=current_user_id,
@@ -143,8 +143,7 @@ class TaskService:
             )
             
             await self.uow.commit()
-            cache_key = f"project:{project_id}:tasks_tree"
-            await self.redis.delete(cache_key)
+            await clear_cache_key(self.redis, f"project:{project_id}:tasks_tree")
             
             if ("performer_id" in task_data
                 and updated_task.performer_id != old_task_performer_id
@@ -169,7 +168,7 @@ class TaskService:
 
             await self.uow.commit()
         
-            await safe_arq_enqueue(
+            await enqueue_task(
                 self.arq_pool,
                 "log_activity_task",
                 user_id=current_user_id,
@@ -180,5 +179,5 @@ class TaskService:
                 details=None
             )
 
-            await self.redis.delete(f"project:{project_id}:tasks_tree")
+            await clear_cache_key(self.redis, f"project:{project_id}:tasks_tree")
         
