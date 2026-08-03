@@ -22,8 +22,13 @@ class Settings(BaseSettings):
     
     CLICKHOUSE_HOST: str = "127.0.0.1"
     CLICKHOUSE_PORT: int = 8123
+    CLICKHOUSE_USER: str = "default"
+    CLICKHOUSE_PASSWORD: str = ""
     @property
     def CLICKHOUSE_URL(self) -> str:
+        if self.CLICKHOUSE_PASSWORD:
+            return f"http://{self.CLICKHOUSE_USER}:{self.CLICKHOUSE_PASSWORD}@{self.CLICKHOUSE_HOST}:{self.CLICKHOUSE_PORT}"
+        
         return f"http://{self.CLICKHOUSE_HOST}:{self.CLICKHOUSE_PORT}"
     
     MAIL_SMTP_HOST: str = "127.0.0.1"

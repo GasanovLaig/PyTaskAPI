@@ -1,21 +1,23 @@
-# Используем легковесный и актуальный образ Python
-FROM python:3.13-slim
+FROM python:3.13-alpine AS builder
 
-# Запрещаем Python писать файлы кэша .pyc на диск и включаем немедленный вывод логов в консоль
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
+WORKDIR /build
+
+RUN apk add --no-cache gcc musl-dev libffi-dev
+
+COPY requirements.txt .
+
+RUN pip install --no-cache-dir --user -r requirements.txt
+
+FROM python:3.13-alpine AS runtime
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PATH=/root/.local/bin:$PATH
 
 WORKDIR /code
 
-# Устанавливаем системные утилиты, необходимые для сборки некоторых бинарных библиотек
-RUN apt-get update && apt-get install -y --no-install-recommends gcc libpq-dev && rm -rf /var/lib/apt/lists/*
+COPY --from=builder /root/.local /root/.local
 
-# Копируем и устанавливаем зависимости проекта
-COPY requirements.txt .
-RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir -r requirements.txt
+COPY . /code/
 
-# Копируем всю кодовую базу проекта в контейнер
-COPY . .
-
-# Открываем порт для FastAPI (воркеры порты наружу не выставляют)
 EXPOSE 8000

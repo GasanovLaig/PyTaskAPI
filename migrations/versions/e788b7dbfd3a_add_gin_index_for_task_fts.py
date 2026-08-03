@@ -1,7 +1,7 @@
 """Add GIN index for task FTS
 
 Revision ID: e788b7dbfd3a
-Revises: 2b7a927f562c
+Revises: ec3fe8c1c944
 Create Date: 2026-07-23 15:23:27.327704
 
 """
@@ -13,7 +13,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision: str = 'e788b7dbfd3a'
-down_revision: Union[str, Sequence[str], None] = '2b7a927f562c'
+down_revision: Union[str, Sequence[str], None] = 'ec3fe8c1c944'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

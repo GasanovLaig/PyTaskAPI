@@ -1,15 +1,14 @@
 services:
-  # 1. БАЗА ДАННЫХ POSTGRESQL
+  # Реляционная база (PostgreSQL)
   db:
     image: postgres:16-alpine
-    container_name: pytaskapi_db
     restart: always
     environment:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME}
     ports:
-      - "${DB_PORT}:5432"
+      - "${DB_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -18,60 +17,103 @@ services:
       timeout: 5s
       retries: 5
 
-  # 2. БРОКЕР СООБЩЕНИЙ REDIS
+  # Брокер и Кэш (Redis)
   redis:
     image: redis:7-alpine
-    container_name: pytaskapi_redis
     restart: always
     ports:
       - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
-  # 3. ПЕРЕХВАТЧИК ПИСЕМ MAILHOG
+  # Аналитическая БД / Логирование (ClickHouse)
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    restart: always
+    environment:
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER:-default}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
+    ports:
+      - "${CLICKHOUSE_PORT:-8123}:8123"
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Mailhog (Перехватчик писем)
   mailhog:
     image: mailhog/mailhog
-    container_name: pytaskapi_hog
     restart: always
     ports:
       - "${MAIL_SMTP_PORT:-1025}:1025"
       - "${MAIL_WEB_PORT:-8025}:8025"
 
-  # 4. ВЕБ-ПРИЛОЖЕНИЕ FASTAPI
+  # Веб-приложение (FastAPI)
   web:
-    build: .
-    container_name: pytaskapi_web
+    build:
+      context: .
+      target: runtime
     restart: always
     ports:
       - "${APP_PORT:-8000}:8000"
     env_file:
       - .env
-    command: >
-      sh -c "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
+    environment:
+      - DB_HOST=db
+      - REDIS_HOST=redis
+      - CLICKHOUSE_HOST=clickhouse
+      - MAIL_SMTP_HOST=mailhog
+
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER:-default}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
     volumes:
       - .:/code
+    command: >
+      sh -c "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
     depends_on:
       db:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
 
-  # 5. ФОНОВЫЙ ВОРКЕР CELERY
+  # Фоновый воркер задач (ARQ)
   worker:
-    build: .
-    container_name: pytaskapi_worker
+    build:
+      context: .
+      target: runtime
     restart: always
     env_file:
       - .env
+    environment:
+      - DB_HOST=db
+      - REDIS_HOST=redis
+      - CLICKHOUSE_HOST=clickhouse
+      - MAIL_SMTP_HOST=mailhog
     volumes:
       - .:/code
-    # Убрать пул селери на threads
-    command: celery -A app.worker.celery_app:celery_app worker --loglevel=info -P threads
+    command: arq app.worker.arq_app.WorkerSettings
     depends_on:
       db:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
       mailhog:
         condition: service_started
 
 volumes:
   postgres_data:
+  clickhouse_data:
