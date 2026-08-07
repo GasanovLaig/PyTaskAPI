@@ -7,7 +7,7 @@ from app.models.task import Task
 from app.services.uow import UnitOfWork
 from app.services.task import TaskService
 from app.models.project_member import Role
-from app.core.redis_client import get_redis
+from app.api.dependencies.redis import get_redis
 from app.api.dependencies.uow import get_uow
 from app.api.dependencies.arq import get_arq_pool
 from app.api.dependencies.role import CheckProjectRole

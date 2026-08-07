@@ -9,25 +9,26 @@ from app.api.v1.tags import router as tags_router
 from app.api.v1.comments import router as comments_router
 from app.api.exception_handlers import register_exception_handlers
 from app.api.middleware import structlog_middleware
-from app.api.dependencies.arq import get_arq_pool
 from app.core.logger import setup_logger
-from app.core.init_clickhouse import init_clickhouse
+from app.core.redis_client import redis_manager
+from app.api.dependencies.arq import arq_manager
 
 logger = structlog.get_logger("app.lifespan")
 setup_logger()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Application startup initiated")
-    await init_clickhouse()
-    arq_pool = await get_arq_pool()
-    logger.info("Infrastructure connections established")
+    logger.info("=== STARTUP: Initializing infrastructure pools ===")
+    app.state.redis = await redis_manager.connect()
+    app.state.arq_pool = await arq_manager.connect()
+    logger.info("=== STARTUP: Infrastructure is fully ready ===")
     
     yield
     
-    logger.info("Application shutdown initiated")
-    await arq_pool.close()
-    logger.info("Infrastructure connections closed")
+    logger.info("=== SHUTDOWN: Closing infrastructure pools ===")
+    await redis_manager.disconnect()
+    await arq_manager.disconnect()
+    logger.info("=== SHUTDOWN: All connections safely closed ===")
 
 app = FastAPI(title="PyTaskAPI", lifespan=lifespan)
 

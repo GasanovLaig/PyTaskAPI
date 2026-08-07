@@ -3,7 +3,7 @@ from redis.asyncio import Redis
 
 from app.api.dependencies.role import CheckProjectRole
 from app.api.dependencies.uow import get_uow
-from app.core.redis_client import get_redis
+from app.api.dependencies.redis import get_redis
 from app.models.project_member import Role
 from app.models.tag import Tag
 from app.models.user import User
