@@ -27,10 +27,9 @@ router = APIRouter(tags=["Проекты"])
 async def create_project(
     project_data: ProjectCreate,
     uow: UnitOfWork = Depends(get_uow),
-    current_user: User = Depends(get_current_user),
-    arq_pool: ArqRedis = Depends(get_arq_pool)
+    current_user: User = Depends(get_current_user)
 ) -> Project:
-    project_service = ProjectService(uow, arq_pool)
+    project_service = ProjectService(uow)
     
     return await project_service.create_new_project(project_data, current_user.id)
 
@@ -40,9 +39,8 @@ async def add_project_member(
     member_data: ProjectMemberAdd,
     uow: UnitOfWork = Depends(get_uow),
     current_user: User = Depends(CheckProjectRole([Role.OWNER])),
-    arq_pool: ArqRedis = Depends(get_arq_pool)
 ):
-    project_service = ProjectService(uow, arq_pool)
+    project_service = ProjectService(uow)
     await project_service.add_project_member(project_id, member_data, current_user.id)
     
     return {"detail": "Пользователь успешно добавлен в проект"}
@@ -61,10 +59,9 @@ async def update_project(
     project_id: int,
     project_data: ProjectUpdate,
     uow: UnitOfWork = Depends(get_uow),
-    current_user: User = Depends(CheckProjectRole([Role.OWNER])),
-    arq_pool: ArqRedis = Depends(get_arq_pool)
+    current_user: User = Depends(CheckProjectRole([Role.OWNER]))
 ) -> Project:
-    project_service = ProjectService(uow, arq_pool)
+    project_service = ProjectService(uow)
     
     return await project_service.update_project_details(project_id, project_data, current_user.id)
     
@@ -73,9 +70,8 @@ async def delete_project(
     project_id: int,
     uow: UnitOfWork = Depends(get_uow),
     current_user: User = Depends(CheckProjectRole([Role.OWNER])),
-    arq_pool: ArqRedis = Depends(get_arq_pool)
 ):
-    project_service = ProjectService(uow, arq_pool)
+    project_service = ProjectService(uow)
     await project_service.delete_project(project_id, current_user.id)
     
 @router.post(

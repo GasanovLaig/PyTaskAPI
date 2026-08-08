@@ -1,15 +1,13 @@
-from redis.asyncio import Redis
-
 from app.models.tag import Tag
+from app.core.events import event_bus
 from app.schemas.tag import TagCreate
 from app.services.uow import UnitOfWork
 from app.core.exceptions import ResourceNotFoundError
-from app.utils.clear_cache_key import clear_cache_key
+from app.events.events import TagCacheInvalidationEvent
 
 class TagService:
-    def __init__(self, uow: UnitOfWork, redis: Redis = None):
+    def __init__(self, uow: UnitOfWork):
         self.uow = uow
-        self.redis = redis
         
     async def create_new_tag(self, project_id: int, tag_data: TagCreate) -> Tag:
         async with self.uow:
@@ -35,8 +33,8 @@ class TagService:
                 raise ResourceNotFoundError("Задача или тег с таким ID не найдены в данном проекте")
             
             await self.uow.commit()
-                
-        await clear_cache_key(self.redis, f"project:{project_id}:tasks_tree")
+            
+        await event_bus.publish(TagCacheInvalidationEvent(project_id))
             
     async def detach_tag_from_task(self, project_id: int, task_id: int, tag_id: int) -> None:
         async with self.uow:
@@ -45,9 +43,9 @@ class TagService:
                 raise ResourceNotFoundError("Задача или тег с таким ID не найдены в данном проекте")
                 
             await self.uow.commit()
+        
+        await event_bus.publish(TagCacheInvalidationEvent(project_id))
             
-        await clear_cache_key(self.redis, f"project:{project_id}:tasks_tree")
-    
     async def delete_tag_by_id(self, project_id: int, tag_id: int) -> None:
         async with self.uow:
             is_deleted = await self.uow.tags.delete_by_id_secure(tag_id, project_id)
@@ -56,5 +54,5 @@ class TagService:
 
             await self.uow.commit()
             
-        await clear_cache_key(self.redis, f"project:{project_id}:tasks_tree")
+        await event_bus.publish(TagCacheInvalidationEvent(project_id))
         

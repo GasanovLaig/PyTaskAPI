@@ -1,15 +1,13 @@
 from fastapi import APIRouter, Depends, status
-from redis.asyncio import Redis
 
-from app.api.dependencies.role import CheckProjectRole
-from app.api.dependencies.uow import get_uow
-from app.api.dependencies.redis import get_redis
-from app.models.project_member import Role
 from app.models.tag import Tag
 from app.models.user import User
 from app.services.tag import TagService
-from app.schemas.tag import TagCreate, TagResponse
 from app.services.uow import UnitOfWork
+from app.models.project_member import Role
+from app.api.dependencies.uow import get_uow
+from app.schemas.tag import TagCreate, TagResponse
+from app.api.dependencies.role import CheckProjectRole
 
 router = APIRouter(tags=["Теги"])
 
@@ -40,10 +38,9 @@ async def attach_tag_to_task(
     task_id: int,
     tag_id: int,
     uow: UnitOfWork = Depends(get_uow),
-    redis: Redis = Depends(get_redis),
     _: User = Depends(CheckProjectRole([Role.OWNER, Role.MANAGER]))
 ) -> None:
-    tag_service = TagService(uow, redis)
+    tag_service = TagService(uow)
     await tag_service.attach_tag_to_task(project_id, task_id, tag_id)
     
 @router.delete("/projects/{project_id}/tasks/{task_id}/tags/{tag_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -52,10 +49,9 @@ async def detach_tag_from_task(
     task_id: int,
     tag_id: int,
     uow: UnitOfWork = Depends(get_uow),
-    redis: Redis = Depends(get_redis),
     _: User = Depends(CheckProjectRole([Role.OWNER, Role.MANAGER]))
 ) -> None:
-    tag_service = TagService(uow, redis)
+    tag_service = TagService(uow)
     await tag_service.detach_tag_from_task(project_id, task_id, tag_id)
 
 @router.delete("/projects/{project_id}/tags/{tag_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -63,8 +59,7 @@ async def delete_tag_from_project(
     project_id: int,
     tag_id: int,
     uow: UnitOfWork = Depends(get_uow),
-    redis: Redis = Depends(get_redis),
     _: User = Depends(CheckProjectRole([Role.OWNER, Role.MANAGER]))
 ):
-    tag_service = TagService(uow, redis)
+    tag_service = TagService(uow)
     await tag_service.delete_tag_by_id(project_id, tag_id)

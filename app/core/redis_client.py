@@ -26,7 +26,7 @@ class RedisManager:
         """Плавное закрытие пула при остановке приложения."""
         if self.client:
             logger.info("Disconnecting from Redis pool...")
-            await self.client.close()
+            await self.client.aclose()
             self.client = None
 
 redis_manager = RedisManager()

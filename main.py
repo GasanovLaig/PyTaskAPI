@@ -12,6 +12,7 @@ from app.api.middleware import structlog_middleware
 from app.core.logger import setup_logger
 from app.core.redis_client import redis_manager
 from app.api.dependencies.arq import arq_manager
+from app.events.init_bus import configure_event_bus
 
 logger = structlog.get_logger("app.lifespan")
 setup_logger()
@@ -22,6 +23,7 @@ async def lifespan(app: FastAPI):
     app.state.redis = await redis_manager.connect()
     app.state.arq_pool = await arq_manager.connect()
     logger.info("=== STARTUP: Infrastructure is fully ready ===")
+    configure_event_bus(arq_pool=app.state.arq_pool, redis_client=app.state.redis)
     
     yield
     

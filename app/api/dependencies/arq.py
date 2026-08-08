@@ -23,7 +23,7 @@ class ArqManager:
         """Закрытие пула задач при остановке."""
         if self.arq_pool:
             logger.info("Disconnecting from ARQ Task Queue pool...")
-            await self.arq_pool.close()
+            await self.arq_pool.aclose()
             self.arq_pool = None
             
 arq_manager = ArqManager()
