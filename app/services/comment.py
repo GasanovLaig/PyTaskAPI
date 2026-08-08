@@ -1,7 +1,6 @@
-from app.core.exceptions import ResourceNotFoundError
 from app.models.comment import Comment
-from app.schemas.comment import CommentCreate
 from app.services.uow import UnitOfWork
+from app.core.exceptions import ResourceNotFoundError
 
 class CommentService:
     def __init__(self, uow: UnitOfWork):
@@ -12,32 +11,28 @@ class CommentService:
         project_id: int,
         task_id: int,
         current_user_id: int,
-        comment_data: CommentCreate
+        payload: dict
     ) -> Comment:
+        db_data = payload.copy()
+        db_data["task_id"] = task_id
+        db_data["author_id"] = current_user_id
         async with self.uow:
             is_task_exists = await self.uow.tasks.is_exists_in_project(task_id, project_id)
             if not is_task_exists:
                 raise ResourceNotFoundError("Задача с таким ID не найдена в данном проекте")
 
-            if comment_data.parent_comment_id == 0:
-                comment_data.parent_comment_id = None
-            
-            if comment_data.parent_comment_id is not None:
+            if db_data.get("parent_comment_id") is not None:
                 is_parent_comment = await self.uow.comments.is_parent_comment_valid(
-                    comment_data.parent_comment_id,
+                    db_data["parent_comment_id"],
                     task_id
                 )
                 if not is_parent_comment:
                     raise ResourceNotFoundError("Родительский комментарий с таким ID не найден")
                     
-            db_data = comment_data.model_dump()
-            db_data["task_id"] = task_id
-            db_data["author_id"] = current_user_id
-            
             new_comment = await self.uow.comments.create(db_data)
             await self.uow.commit()
             
-            return new_comment
+        return new_comment
     
     async def get_task_comments(self, project_id: int, task_id: int) -> list[Comment]:
         async with self.uow:

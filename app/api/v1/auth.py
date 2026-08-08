@@ -16,7 +16,10 @@ async def create_user(
 ) -> User:
     auth_service = AuthService(uow)
     
-    return await auth_service.register_new_user(user_data)
+    plain_password = user_data.password.get_secret_value()
+    payload = user_data.model_dump(exclude={"password"})
+    
+    return await auth_service.register_new_user(payload, plain_password)
 
 @router.post("/login")
 async def login(

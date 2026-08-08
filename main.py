@@ -19,18 +19,18 @@ setup_logger()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("=== STARTUP: Initializing infrastructure pools ===")
+    logger.info("infrastructure_startup_initiated")
     app.state.redis = await redis_manager.connect()
     app.state.arq_pool = await arq_manager.connect()
-    logger.info("=== STARTUP: Infrastructure is fully ready ===")
+    logger.info("infrastructure_startup_completed")
     configure_event_bus(arq_pool=app.state.arq_pool, redis_client=app.state.redis)
     
     yield
     
-    logger.info("=== SHUTDOWN: Closing infrastructure pools ===")
+    logger.info("infrastructure_shutdown_initiated")
     await redis_manager.disconnect()
     await arq_manager.disconnect()
-    logger.info("=== SHUTDOWN: All connections safely closed ===")
+    logger.info("infrastructure_shutdown_completed")
 
 app = FastAPI(title="PyTaskAPI", lifespan=lifespan)
 

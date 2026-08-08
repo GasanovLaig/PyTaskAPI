@@ -14,7 +14,7 @@ class ArqManager:
     async def connect(self) -> ArqRedis:
         """Инициализация пула задач при старте."""
         if not self.arq_pool:
-            logger.info("Connecting to ARQ Task Queue pool...")
+            logger.info("arq_client_pool_initializing")
             self.arq_pool = await create_pool(RedisSettings.from_dsn(settings.REDIS_URL))
             
         return self.arq_pool
@@ -22,7 +22,7 @@ class ArqManager:
     async def disconnect(self) -> None:
         """Закрытие пула задач при остановке."""
         if self.arq_pool:
-            logger.info("Disconnecting from ARQ Task Queue pool...")
+            logger.info("arq_client_pool_closing")
             await self.arq_pool.aclose()
             self.arq_pool = None
             

@@ -20,7 +20,7 @@ async def create_tag(
 ) -> Tag:
     tag_service = TagService(uow)
     
-    return await tag_service.create_new_tag(project_id, tag_data)
+    return await tag_service.create_new_tag(project_id, tag_data.model_dump())
 
 @router.get("/projects/{project_id}/tags", response_model=list[TagResponse])
 async def get_all_tags(

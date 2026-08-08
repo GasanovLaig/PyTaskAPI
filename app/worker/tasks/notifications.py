@@ -33,5 +33,5 @@ async def send_assignee_email_task(ctx, performer_email: str, task_title: str, p
         )
         logger.info("email_successfully_sent", performer_email=performer_email, job_id=job_id)
     except Exception as error:
-        logger.error("email_sending_failed", performer_email, error=str(error), job_id=job_id)
+        logger.error("email_sending_failed", performer_email=performer_email, error=str(error), job_id=job_id)
     

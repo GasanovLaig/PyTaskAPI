@@ -25,7 +25,7 @@ async def create_comment(
         project_id,
         task_id,
         current_user.id,
-        comment_data
+        comment_data.model_dump()
     )
 
 @router.get("/projects/{project_id}/tasks/{task_id}/comments", response_model=list[CommentResponse])

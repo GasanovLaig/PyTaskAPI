@@ -9,10 +9,10 @@ class TagService:
     def __init__(self, uow: UnitOfWork):
         self.uow = uow
         
-    async def create_new_tag(self, project_id: int, tag_data: TagCreate) -> Tag:
+    async def create_new_tag(self, project_id: int, payload: dict) -> Tag:
+        db_data = payload.copy()
+        db_data["project_id"] = project_id
         async with self.uow:
-            db_data = tag_data.model_dump()
-            db_data["project_id"] = project_id
             new_tag = await self.uow.tags.create(db_data)
             await self.uow.commit()
             

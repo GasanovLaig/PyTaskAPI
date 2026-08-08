@@ -3,8 +3,6 @@ import structlog
 
 from app.core.config import settings
 
-logger = structlog.get_logger("infra.clickhouse")
-
 CLICKHOUSE_DDL = """
 CREATE TABLE IF NOT EXISTS activity_logs (
     id UUID,
@@ -33,7 +31,7 @@ class ClickHouseManager:
     async def connect(self) -> httpx.AsyncClient:
         """Инициализация постоянного пула HTTP-соединений."""
         if not self.client:
-            logger.info("Initializing ClickHouse HTTP client pool...")
+            logger.info("clickhouse_client_pool_initializing")
             
         limits = httpx.Limits(
             max_connections=50,
@@ -53,19 +51,19 @@ class ClickHouseManager:
     
     async def _init_db_structure(self) -> None:
         """Скрытый внутренний метод для выполнения миграций / DDL."""
-        logger.info("Checking and initializing ClickHouse database schema...")
+        logger.info("clickhouse_schema_check_started")
         try:
             response = await self.client.post("/", params={"query": CLICKHOUSE_DDL})
             response.raise_for_status()
-            logger.info("ClickHouse database schema is up to date")
+            logger.info("clickhouse_schema_up_to_date")
         except Exception as error:
-            logger.error("ClickHouse schema initialization failed", error=str(error))
+            logger.error("clickhouse_schema_initialization_failed", error=str(error))
             raise error
     
     async def disconnect(self) -> None:
         """Плавное закрытие пула при выключении."""
         if self.client:
-            logger.info("Closing ClickHouse HTTP client pool...")
+            logger.info("clickhouse_client_pool_closing")
             await self.client.aclose()
             self.client = None
             

@@ -5,7 +5,6 @@ from fastapi.encoders import jsonable_encoder
 from app.models.task import Task
 from app.core.events import event_bus
 from app.services.uow import UnitOfWork
-from app.schemas.task import TaskCreate, TaskUpdate
 from app.core.exceptions import ResourceNotFoundError
 from app.events.events import TaskDeletedEvent, TaskUpdatedEvent, TaskCreatedEvent
 
@@ -14,26 +13,23 @@ class TaskService:
         self.uow = uow
         self.redis = redis
         
-    async def create_task(self, project_id: int, task_data: TaskCreate, current_user_id: int) -> Task:
+    async def create_task(self, project_id: int, payload: dict, current_user_id: int) -> Task:
+        db_data = payload.copy()
+        db_data["project_id"] = project_id
         async with self.uow:
-            if task_data.performer_id is not None:
-                is_project_member = await self.uow.projects.is_member(project_id, task_data.performer_id)
+            if db_data.get("performer_id") is not None:
+                is_project_member = await self.uow.projects.is_member(project_id, db_data["performer_id"])
                 if not is_project_member:
                     raise ResourceNotFoundError("Исполнитель с таким ID не найден в данном проекте")
             
-            if task_data.parent_task_id == 0:
-                task_data.parent_task_id = None
-                
-            if task_data.parent_task_id is not None:
+            if db_data.get("parent_task_id") is not None:
                 is_parent_task: Task = await self.uow.tasks.is_exists_in_project(
-                    task_data.parent_task_id,
+                    db_data["parent_task_id"],
                     project_id
                 )
                 if not is_parent_task:
                     raise ResourceNotFoundError("Родительская задача с таким ID не найдена в данном проекте")
                 
-            db_data = task_data.model_dump()
-            db_data["project_id"] = project_id
             new_task, notify_metadata = await self.uow.tasks.create_and_get_notify_metadata(db_data)
             await self.uow.commit()
             
@@ -85,14 +81,14 @@ class TaskService:
         async with self.uow:
             return await self.uow.tasks.search_tasks_in_project(project_id, clean_query)
         
-    async def update_task_details(self, project_id: int, task_id: int, task_data: TaskUpdate, current_user_id: int) -> Task:
+    async def update_task_details(self, project_id: int, task_id: int, payload: dict, current_user_id: int) -> Task:
+        db_data = payload.copy()
         async with self.uow:
-            if task_data.performer_id is not None:
-                is_project_member = await self.uow.projects.is_member(project_id, task_data.performer_id)
+            if db_data.get("performer_id") is not None:
+                is_project_member = await self.uow.projects.is_member(project_id, db_data["performer_id"])
                 if not is_project_member:
                     raise ResourceNotFoundError("Исполнитель с таким ID не найден в данном проекте")
                 
-            db_data = task_data.model_dump(exclude_unset=True)
             updated_task, old_metadata, notify_metadata = await self.uow.tasks.update_and_get_all_metadata(
                 task_id, project_id, db_data
             )

@@ -1,6 +1,5 @@
 from app.models.user import User
 from app.core.events import event_bus
-from app.schemas.user import UserCreate
 from app.services.uow import UnitOfWork
 from app.core.exceptions import InvalidCredentialsError
 from app.events.events import AuthFailedEvent, AuthLoginEvent, UserRegisteredEvent
@@ -10,12 +9,10 @@ class AuthService:
     def __init__(self, uow: UnitOfWork):
         self.uow = uow
         
-    async def register_new_user(self, user_data: UserCreate) -> User:
+    async def register_new_user(self, payload: dict, plain_password: str) -> User:
+        db_data = payload.copy()
+        db_data["hashed_password"] = get_password_hash(plain_password)
         async with self.uow:
-            hashed_password = get_password_hash(user_data.password.get_secret_value())
-            db_data = user_data.model_dump(exclude="password")
-            db_data["hashed_password"] = hashed_password
-            
             new_user = await self.uow.users.create(db_data)
             await self.uow.commit()
             

@@ -28,7 +28,11 @@ async def create_task(
 ) -> Task:
     task_service = TaskService(uow)
     
-    return await task_service.create_task(project_id, task_data, current_user.id)
+    return await task_service.create_task(
+        project_id,
+        task_data.model_dump(),
+        current_user.id
+    )
 
 @router.get("/projects/{project_id}/tasks/tree", response_model=list[TaskTreeResponse])
 async def get_project_tasks_tree(
@@ -86,7 +90,7 @@ async def update_task(
     return await task_service.update_task_details(
         project_id,
         task_id,
-        task_data,
+        task_data.model_dump(exclude_unset=True),
         current_user.id
     )
 

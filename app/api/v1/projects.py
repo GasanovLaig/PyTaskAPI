@@ -31,7 +31,7 @@ async def create_project(
 ) -> Project:
     project_service = ProjectService(uow)
     
-    return await project_service.create_new_project(project_data, current_user.id)
+    return await project_service.create_new_project(project_data.model_dump(), current_user.id)
 
 @router.post("/projects/{project_id}/members", status_code=status.HTTP_201_CREATED)
 async def add_project_member(
@@ -41,7 +41,7 @@ async def add_project_member(
     current_user: User = Depends(CheckProjectRole([Role.OWNER])),
 ):
     project_service = ProjectService(uow)
-    await project_service.add_project_member(project_id, member_data, current_user.id)
+    await project_service.add_project_member(project_id, member_data.model_dump(), current_user.id)
     
     return {"detail": "Пользователь успешно добавлен в проект"}
 
@@ -63,7 +63,11 @@ async def update_project(
 ) -> Project:
     project_service = ProjectService(uow)
     
-    return await project_service.update_project_details(project_id, project_data, current_user.id)
+    return await project_service.update_project_details(
+        project_id,
+        project_data.model_dump(exclude_unset=True),
+        current_user.id
+    )
     
 @router.delete("/projects/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_project(

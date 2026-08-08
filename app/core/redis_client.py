@@ -12,7 +12,7 @@ class RedisManager:
     async def connect(self) -> aioredis.Redis:
         """Инициализация пула соединений при старте приложения."""
         if not self.client:
-            logger.info("Connecting to Redis pool...")
+            logger.info("redis_client_pool_initializing")
             self.client = aioredis.Redis.from_url(
                 settings.REDIS_URL,
                 decode_responses=True,
@@ -25,7 +25,7 @@ class RedisManager:
     async def disconnect(self) -> None:
         """Плавное закрытие пула при остановке приложения."""
         if self.client:
-            logger.info("Disconnecting from Redis pool...")
+            logger.info("redis_client_pool_closing")
             await self.client.aclose()
             self.client = None
 

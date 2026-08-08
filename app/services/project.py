@@ -2,7 +2,6 @@ from app.core.events import event_bus
 from app.models.project import Project
 from app.services.uow import UnitOfWork
 from app.core.exceptions import ResourceNotFoundError
-from app.schemas.project import ProjectMemberAdd, ProjectCreate, ProjectUpdate
 from app.events.events import (
     ProjectCreatedEvent, ProjectDeletedEvent,
     ProjectMemberAddedEvent, ProjectUpdatedEvent
@@ -12,10 +11,10 @@ class ProjectService:
     def __init__(self, uow: UnitOfWork):
         self.uow = uow
         
-    async def create_new_project(self, project_data: ProjectCreate, current_user_id: int) -> Project:
+    async def create_new_project(self, payload: dict, current_user_id: int) -> Project:
+        db_data = payload.copy()
         async with self.uow:
-            project_dict = project_data.model_dump()
-            new_project = await self.uow.projects.create_project_with_user(project_dict, current_user_id)
+            new_project = await self.uow.projects.create_project_with_user(db_data, current_user_id)
             await self.uow.commit()
             
         await event_bus.publish(
@@ -27,18 +26,18 @@ class ProjectService:
 
         return new_project
                   
-    async def add_project_member(self, project_id: int, member_data: ProjectMemberAdd, current_user_id: int):
+    async def add_project_member(self, project_id: int, payload: dict, current_user_id: int):
+        db_data = payload.copy()
+        db_data["project_id"] = project_id
         async with self.uow:
-            db_data = member_data.model_dump()
-            db_data["project_id"] = project_id
             await self.uow.projects.add_project_member(db_data)
             await self.uow.commit()
             
         await event_bus.publish(
             ProjectMemberAddedEvent(
                 project_id=project_id,
-                user_id=member_data.user_id,
-                role=member_data.role.value,
+                user_id=db_data["user_id"],
+                role=db_data["role"],
                 current_user_id=current_user_id
             ))
             
@@ -46,9 +45,9 @@ class ProjectService:
         async with self.uow:
             return await self.uow.projects.get_my_projects(current_user_id)
     
-    async def update_project_details(self, project_id: int, project_data: ProjectUpdate, current_user_id: int) -> Project:
+    async def update_project_details(self, project_id: int, payload: dict, current_user_id: int) -> Project:
+        db_data = payload.copy()
         async with self.uow:
-            db_data = project_data.model_dump(exclude_unset=True)
             updated_project = await self.uow.projects.update_by_id(project_id, db_data)
             if not updated_project:
                 raise ResourceNotFoundError("Проект с таким ID не найден")
