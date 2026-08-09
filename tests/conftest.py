@@ -1,8 +1,9 @@
 import pytest
 from typing import AsyncGenerator
+from unittest.mock import AsyncMock
+from sqlalchemy.pool import NullPool
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine, async_sessionmaker, AsyncSession
-from sqlalchemy.pool import NullPool
 
 from main import app
 from app.core.database import Base, get_db
@@ -76,12 +77,26 @@ async def db_session(db_engine: AsyncEngine) -> AsyncGenerator[AsyncSession, Non
         
 @pytest.fixture(scope="function")
 async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
-    """Клиент FastAPI с автоматическим переопределением зависимости сессии."""
+    """Тестовый клиент FastAPI с полной изоляцией от Redis, ClickHouse и ARQ."""
+    
     async def override_get_db():
         yield db_session
         
     app.dependency_overrides[get_db] = override_get_db
     
+    mock_redis = AsyncMock()
+    mock_redis.get = AsyncMock(return_value=None)
+    mock_redis.set = AsyncMock(return_value=True)
+    app.state.redis = mock_redis
+    
+    mock_arq = AsyncMock()
+    mock_arq.enqueue_job = AsyncMock(return_value=AsyncMock())
+    app.state.arq_pool = mock_arq
+    
+    mock_clickhouse = AsyncMock()
+    mock_clickhouse.post = AsyncMock(return_value=AsyncMock(status_code=200))
+    app.state.clickhouse = mock_clickhouse
+        
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://127.0.0.1:8000"
