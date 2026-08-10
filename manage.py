@@ -1,5 +1,5 @@
-import asyncio
 import typer
+import asyncio
 
 from app.seeds.task_seeder import run_bulk_seed
 
@@ -8,30 +8,32 @@ app = typer.Typer(
     no_args_is_help=True
 )
 
-@app.command(name="seed", help="Заполнение базы данных детерминированными тестовыми данными (Bulk Insert)")
+@app.command(name="seed", help="Наполнение БД. Создает аккаунты owner@pytask.com, manager@pytask.com, developer@pytask.com")
 def seed_database(
     tasks_per_project: int = typer.Option(
-        50, 
+        30, 
         "--tasks", "-t", 
-        help="Количество корневых задач, создаваемых для каждого проекта"
+        help="Количество корневых ИТ-задач на один проект"
     ),
     users_count: int = typer.Option(
-        15, 
+        10, 
         "--users", "-u", 
-        help="Общее количество генерируемых сотрудников компании"
+        help="Общее количество сотрудников (минимум 3 для фиксированных ролей)"
     )
 ):
     """Консольная команда для быстрой генерации дерева задач, участников и логов."""
     typer.secho("🚀 Подключение к PostgreSQL и запуск фабрики сидов...", fg=typer.colors.CYAN)
     
     try:
-        # Запускаем асинхронную сессию сидера в синхронном окружении Typer
         asyncio.run(run_bulk_seed(users_count=users_count, tasks_count=tasks_per_project))
-        
-        typer.secho("\n✨ Процесс завершен! Команда успешно выполнена.", fg=typer.colors.GREEN, bold=True)
+        typer.secho("\n✨ Процесс завершен! Доступы для Swagger: пароль '123' для всех статичных ролей.", fg=typer.colors.GREEN, bold=True)
     except Exception as error:
         typer.secho(f"\n❌ Произошла ошибка при наполнении базы: {error}", fg=typer.colors.RED, bold=True)
         raise typer.Exit(code=1)
+    
+@app.callback()
+def main():
+    pass
 
 if __name__ == "__main__":
     app()
