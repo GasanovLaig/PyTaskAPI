@@ -13,6 +13,7 @@ from app.core.logger import setup_logger
 from app.core.redis_client import redis_manager
 from app.api.dependencies.arq import arq_manager
 from app.events.init_bus import configure_event_bus
+from app.core.database import db_manager
 
 logger = structlog.get_logger("app.lifespan")
 setup_logger()
@@ -20,6 +21,7 @@ setup_logger()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("infrastructure_startup_initiated")
+    app.state.db_session_factory = await db_manager.connect()
     app.state.redis = await redis_manager.connect()
     app.state.arq_pool = await arq_manager.connect()
     logger.info("infrastructure_startup_completed")
@@ -28,8 +30,9 @@ async def lifespan(app: FastAPI):
     yield
     
     logger.info("infrastructure_shutdown_initiated")
-    await redis_manager.disconnect()
     await arq_manager.disconnect()
+    await redis_manager.disconnect()
+    await db_manager.disconnect()
     logger.info("infrastructure_shutdown_completed")
 
 app = FastAPI(title="PyTaskAPI", lifespan=lifespan)

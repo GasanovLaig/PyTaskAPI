@@ -1,15 +1,14 @@
-from datetime import datetime, timedelta, timezone
-from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
 import jwt
 from pwdlib import PasswordHash
 from pwdlib.hashers.argon2 import Argon2Hasher
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi.security import OAuth2PasswordBearer
+from datetime import datetime, timedelta, timezone
+from fastapi import Depends, HTTPException, status
 
-from app.core.database import get_db
-from app.core.config import settings
 from app.models.user import User
-from app.repositories.user import UserRepository
+from app.core.config import settings
+from app.services.uow import UnitOfWork
+from app.api.dependencies.uow import get_uow
 
 password_hash = PasswordHash([Argon2Hasher()])
 
@@ -32,7 +31,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 async def get_current_user(
     token: str = Depends(oauth2_scheme),
-    db: AsyncSession = Depends(get_db)
+    uow: UnitOfWork = Depends(get_uow,)
 ) -> User:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -49,8 +48,8 @@ async def get_current_user(
     except jwt.PyJWTError:
         raise credentials_exception
     
-    user_repository = UserRepository(session=db)
-    user = await user_repository.get_by_email(email)
+    async with uow:
+        user = await uow.users.get_by_email(email)
     
     if user is None:
         raise credentials_exception

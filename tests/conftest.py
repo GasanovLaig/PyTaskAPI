@@ -6,7 +6,7 @@ from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine, async_sessionmaker, AsyncSession
 
 from main import app
-from app.core.database import Base, get_db
+from app.core.database import Base
 from app.core.config import Settings, settings
 from tests.factories import ProjectFactory, UserFactory, TaskFactory
 
@@ -79,10 +79,10 @@ async def db_session(db_engine: AsyncEngine) -> AsyncGenerator[AsyncSession, Non
 async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
     """Тестовый клиент FastAPI с полной изоляцией от Redis, ClickHouse и ARQ."""
     
-    async def override_get_db():
-        yield db_session
-        
-    app.dependency_overrides[get_db] = override_get_db
+    def mock_session_factory():
+        return db_session
+    
+    app.state.db_session_factory = mock_session_factory
     
     mock_redis = AsyncMock()
     mock_redis.get = AsyncMock(return_value=None)

@@ -1,12 +1,12 @@
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import DatabaseDeadlockError, ResourceAlreadyExistsError, ResourceNotFoundError
-from app.repositories.comment import CommentRepository
-from app.repositories.project import ProjectRepository
 from app.repositories.tag import TagRepository
 from app.repositories.task import TaskRepository
 from app.repositories.user import UserRepository
+from app.repositories.comment import CommentRepository
+from app.repositories.project import ProjectRepository
+from app.core.exceptions import DatabaseDeadlockError, ResourceAlreadyExistsError, ResourceNotFoundError
 
 class UnitOfWork:
     def __init__(self, session: AsyncSession):
@@ -22,10 +22,6 @@ class UnitOfWork:
         return self
     
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """
-        Централизованный перехват ВСЕХ ошибок базы данных,
-        которые случились в блоке 'async with self.uow:' (включая репозитории).
-        """
         if exc_type is not None:
             await self.session.rollback()
             
