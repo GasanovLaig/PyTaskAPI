@@ -1,10 +1,11 @@
 import json
+from pydantic import RootModel
 from redis.asyncio import Redis
-from fastapi.encoders import jsonable_encoder
 
 from app.models.task import Task
 from app.core.events import event_bus
 from app.services.uow import UnitOfWork
+from app.schemas.task import TaskTreeResponse
 from app.core.exceptions import ResourceNotFoundError
 from app.events.events import TaskDeletedEvent, TaskUpdatedEvent, TaskCreatedEvent
 
@@ -67,8 +68,7 @@ class TaskService:
         
         async with self.uow:
             tree_data = await self.uow.tasks.get_project_tasks_tree(project_id)
-            serialized_data = jsonable_encoder(tree_data)
-            
+            serialized_data = RootModel[list[TaskTreeResponse]](tree_data).model_dump(mode="json")
             await self.redis.set(cache_key, json.dumps(serialized_data), ex=600)
             
             return tree_data

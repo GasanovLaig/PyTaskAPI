@@ -3,22 +3,14 @@ from sqlalchemy import exists, insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.project import Project
-from app.models.project_member import ProjectMember, Role
 from app.repositories.base import BaseRepository
+from app.models.project_member import ProjectMember, Role
 
 class ProjectRepository(BaseRepository[Project]):
     def __init__(self, session: AsyncSession):
         super().__init__(model=Project, session=session)
 
-    async def create_project_with_user(self, project_data: dict, current_user_id: int) -> Project:
-        new_project = Project(**project_data)
-        new_project.memberships.append(ProjectMember(user_id=current_user_id, role=Role.OWNER))
-        self.session.add(new_project)
-        await self.session.flush()
-        
-        return new_project
-    
-    async def add_project_member(self, member_data: dict[str, Any]):
+    async def add_project_member(self, member_data: dict[str, Any]) -> None:
         await self.session.execute(
             insert(ProjectMember)
             .values(**member_data)

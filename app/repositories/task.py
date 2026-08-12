@@ -12,7 +12,6 @@ class TaskRepository(BaseRepository[Task]):
         super().__init__(model=Task, session=session)
         
     async def create_and_get_notify_metadata(self, db_data: dict) -> tuple[Task, dict]:
-        """Создает задачу и быстрыми точечными запросами собирает метаданные."""
         new_task = await self.session.scalar(
             insert(Task)
             .values(**db_data)
@@ -88,7 +87,6 @@ class TaskRepository(BaseRepository[Task]):
         return result.all()
     
     async def update_and_get_all_metadata(self, task_id: int, project_id: int, db_data: dict) -> tuple[Task | None, dict | None, dict | None]:
-        """Обновляет задачу и собирает метаданные без использования тяжелых JOIN-запросов."""
         old_task = await self.session.execute(
             select(Task.title, Task.status, Task.performer_id)
             .where(
@@ -119,11 +117,11 @@ class TaskRepository(BaseRepository[Task]):
         notify_metadata = {"performer_email": None, "project_title": None}
         if updated_task.performer_id is not None:
             notify_metadata["performer_email"] = await self.session.scalar(
-                select(User).where(User.id == updated_task.performer_id)
+                select(User.email).where(User.id == updated_task.performer_id)
             )
         
         notify_metadata["project_title"] = await self.session.scalar(
-            select(Project).where(Project.id == project_id)
+            select(Project.title).where(Project.id == project_id)
         )
         
         return updated_task, old_metadata, notify_metadata

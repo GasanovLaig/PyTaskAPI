@@ -1,6 +1,5 @@
 from app.models.tag import Tag
 from app.core.events import event_bus
-from app.schemas.tag import TagCreate
 from app.services.uow import UnitOfWork
 from app.core.exceptions import ResourceNotFoundError
 from app.events.events import TagCacheInvalidationEvent
@@ -38,7 +37,7 @@ class TagService:
             
     async def detach_tag_from_task(self, project_id: int, task_id: int, tag_id: int) -> None:
         async with self.uow:
-            is_deleted = await self.uow.tags.delete_tag_from_task(project_id, task_id, tag_id)
+            is_deleted = await self.uow.tags.detach_tag_from_task_secure(project_id, task_id, tag_id)
             if not is_deleted:
                 raise ResourceNotFoundError("Задача или тег с таким ID не найдены в данном проекте")
                 

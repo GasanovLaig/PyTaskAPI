@@ -14,7 +14,13 @@ class ProjectService:
     async def create_new_project(self, payload: dict, current_user_id: int) -> Project:
         db_data = payload.copy()
         async with self.uow:
-            new_project = await self.uow.projects.create_project_with_user(db_data, current_user_id)
+            new_project = await self.uow.projects.create(db_data)
+            member_data = {
+                "project_id": new_project.id,
+                "user_id": current_user_id,
+                "role": "owner"
+            }
+            await self.uow.projects.add_project_member(member_data)
             await self.uow.commit()
             
         await event_bus.publish(

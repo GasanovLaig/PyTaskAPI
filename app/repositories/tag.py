@@ -1,9 +1,9 @@
-from sqlalchemy import delete, exists, insert, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import delete, exists, insert, select, true
 
-from app.models import task_tags_table
 from app.models.tag import Tag
 from app.models.task import Task
+from app.models import task_tags_table
 from app.repositories.base import BaseRepository
 
 class TagRepository(BaseRepository[Tag]):
@@ -40,7 +40,7 @@ class TagRepository(BaseRepository[Tag]):
         
         return result.rowcount > 0
     
-    async def delete_tag_from_task(self, project_id: int, task_id: int, tag_id: int) -> bool:
+    async def detach_tag_from_task_secure(self, project_id: int, task_id: int, tag_id: int) -> bool:
         is_task_belongs_to_project_query = select(
             exists()
             .where(

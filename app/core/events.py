@@ -9,6 +9,7 @@ HandlerType = Callable[[Any], Awaitable[None]]
 class EventBus:
     def __init__(self):
         self._listeners: Dict[Type[Any], List[HandlerType]] = {}
+        self._running_tasks = set()
         
     def _get_handler_name(self, handler: HandlerType) -> str:
         """Безопасно извлекает полное квалифицированное имя хендлера (Класс.метод)."""
@@ -42,7 +43,9 @@ class EventBus:
             return
         
         for handler in handlers:
-            asyncio.create_task(self._run_handler(handler, event_name))
+            task = asyncio.create_task(self._run_handler(handler, event_name))
+            self._running_tasks.add(task)
+            task.add_done_callback(self._running_tasks.discard)
             
     async def _run_handler(self, handler: HandlerType, event_name: Any):
         handler_qualified_name = self._get_handler_name(handler)
