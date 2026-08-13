@@ -51,10 +51,11 @@ class TaskService:
     async def get_task_by_id(self, project_id: int, task_id: int) -> Task:
         async with self.uow:
             task = await self.uow.tasks.get_task_with_tags_secure(project_id, task_id)
-            if not task:
-                raise ResourceNotFoundError("Задача с таким ID не найдена в данном проекте")
+        
+        if not task:
+            raise ResourceNotFoundError("Задача с таким ID не найдена в данном проекте")
             
-            return task
+        return task
     
     async def get_project_tasks(self, project_id: int) -> list[Task]:
         async with self.uow:
@@ -68,10 +69,11 @@ class TaskService:
         
         async with self.uow:
             tree_data = await self.uow.tasks.get_project_tasks_tree(project_id)
-            serialized_data = RootModel[list[TaskTreeResponse]](tree_data).model_dump(mode="json")
-            await self.redis.set(cache_key, json.dumps(serialized_data), ex=600)
-            
-            return tree_data
+        
+        serialized_data = RootModel[list[TaskTreeResponse]](tree_data).model_dump(mode="json")
+        await self.redis.set(cache_key, json.dumps(serialized_data), ex=600)
+        
+        return tree_data
         
     async def search_project_tasks(self, project_id: int, query: str) -> list[Task] | None:
         clean_query = query.strip()

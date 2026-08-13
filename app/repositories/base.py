@@ -29,11 +29,6 @@ class BaseRepository(Generic[ModelType]):
         
         return bool(result)
     
-    async def get_all(self) -> list[ModelType]:
-        result = await self.session.scalars(select(self.model))
-        
-        return result.all()
-        
     async def update_by_id(self, obj_id: int, data: dict[str, Any]) -> ModelType | None:
         return await self.session.scalar(
             update(self.model)
@@ -42,17 +37,6 @@ class BaseRepository(Generic[ModelType]):
             .returning(self.model)
         )
         
-    async def update_by_id_secure(self, obj_id: int, project_id: int, data: dict[str, Any]) -> ModelType | None:
-        return await self.session.scalar(
-            update(self.model)
-            .where(
-                self.model.id == obj_id,
-                self.model.project_id == project_id
-            )
-            .values(**data)
-            .returning(self.model)
-        )
-    
     async def delete_by_id(self, obj_id: int) -> bool:
         result = await self.session.execute(
             delete(self.model)
