@@ -54,7 +54,6 @@ class DatabaseManager:
     async def disconnect(self) -> None:
         if self.engine:
             logger.info("postgres_client_pool_closing")
-            self.engine.pool.dispose()
             await self.engine.dispose()
             self.engine = None
             self.session_factory = None
