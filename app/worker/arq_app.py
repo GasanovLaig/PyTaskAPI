@@ -3,6 +3,7 @@ from arq.connections import RedisSettings
 
 from app.core.config import settings
 from app.core.logger import setup_logger
+from app.core.database import db_manager
 from app.core.clickhouse_client import clickhouse_manager
 from app.worker.tasks.reports import generate_project_report_task
 from app.worker.tasks.notifications import send_assignee_email_task
@@ -22,6 +23,7 @@ async def startup(ctx):
     setup_logger()
     ctx["http_client"] = await clickhouse_manager.connect()
     ctx["clickhouse_url"] = settings.CLICKHOUSE_URL
+    ctx["db_session_factory"] = await db_manager.connect()
     
     ctx["logs_batch"] = []
     ctx["logs_lock"] = asyncio.Lock()
@@ -37,6 +39,7 @@ async def shutdown(ctx):
         
     await flush_logs(ctx, reason="worker_shutdown")
     await clickhouse_manager.disconnect()
+    await db_manager.disconnect()
     
 class WorkerSettings:
     functions = [log_activity_task, send_assignee_email_task, generate_project_report_task]

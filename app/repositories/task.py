@@ -1,10 +1,10 @@
 from sqlalchemy.orm import selectinload
-from sqlalchemy import insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import func, insert, select, update
 
-from app.models.task import Task
 from app.models.user import User
 from app.models.project import Project
+from app.models.task import Task, TaskStatus
 from app.repositories.base import BaseRepository
 
 class TaskRepository(BaseRepository[Task]):
@@ -85,6 +85,37 @@ class TaskRepository(BaseRepository[Task]):
         )
         
         return result.all()
+    
+    async def get_project_analytics_data(self, project_id: int) -> dict:
+        """Собирает агрегированную статистику по задачам проекта напрямую из БД."""
+        query = (
+            select(
+                Task.status,
+                func.count(Task.id).label("count")
+            )
+            .where(Task.project_id == project_id)
+            .group_by(Task.status)
+        )
+        
+        result = await self.session.execute(query)
+        rows = result.all()
+        
+        stats = {status.value: 0 for status in TaskStatus}
+        total_tasks = 0
+        
+        for row in rows:
+            stats[row.status.value] = row.count
+            total_tasks += row.count
+            
+        completed = stats.get(TaskStatus.DONE.value, 0)
+        efficiency = (completed / total_tasks * 100) if total_tasks > 0 else 0.0
+        
+        return {
+            "total_tasks": total_tasks,
+            "completed_tasks": completed,
+            "efficiency_rate": f"{round(efficiency, 1)}%",
+            "status_breakdown": stats,
+        }
     
     async def update_and_get_all_metadata(self, task_id: int, project_id: int, db_data: dict) -> tuple[Task | None, dict | None, dict | None]:
         old_task = await self.session.execute(
