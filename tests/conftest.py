@@ -57,7 +57,7 @@ async def db_session(db_engine: AsyncEngine) -> AsyncGenerator[AsyncSession, Non
     Использует режим 'create_savepoint', чтобы перехватывать внутренние коммиты FastAPI.
     """
     async with db_engine.connect() as connection:
-        async with connection.begin() as _:
+        async with connection.begin():
             async_session_factory = async_sessionmaker(
                 bind=connection,
                 expire_on_commit=False,
@@ -70,6 +70,7 @@ async def db_session(db_engine: AsyncEngine) -> AsyncGenerator[AsyncSession, Non
                 TaskFactory._meta.sqlalchemy_session = session
                 
                 yield session
+                
                 UserFactory._meta.sqlalchemy_session = None
                 ProjectFactory._meta.sqlalchemy_session = None
                 TaskFactory._meta.sqlalchemy_session = None
